@@ -49,6 +49,9 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   phone: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  profilePicture: string | null;
+
   @Column({ default: false })
   isEmailVerified: boolean;
 
@@ -84,6 +87,3 @@ export class User {
   })
   preferences: UserPreferences;
 }
-
-
-

@@ -14,12 +14,14 @@ import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { AuthRepository } from '../auth/auth.repository';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class ProfileService {
   constructor(
     private readonly profileRepository: ProfileRepository,
     private readonly authRepository: AuthRepository,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async getProfile(userId: string): Promise<User> {
@@ -30,10 +32,37 @@ export class ProfileService {
     return user;
   }
 
-  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto): Promise<User> {
+  async updateProfile(
+    userId: string,
+    updateProfileDto: UpdateProfileDto,
+    profilePictureFile?: Express.Multer.File,
+  ): Promise<User> {
     const user = await this.authRepository.findById(userId);
     if (!user) {
       throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Upload de la nouvelle photo de profil si fournie
+    if (profilePictureFile) {
+      try {
+        // Supprimer l'ancienne photo si elle existe
+        if (user.profilePicture) {
+          await this.cloudinaryService.deleteProfilePicture(userId);
+        }
+
+        // Uploader la nouvelle photo
+        const profilePictureUrl =
+          await this.cloudinaryService.uploadProfilePicture(
+            profilePictureFile,
+            userId,
+          );
+        updateProfileDto['profilePicture'] = profilePictureUrl;
+      } catch (error) {
+        console.error("Erreur lors de l'upload de la photo de profil:", error);
+        throw new BadRequestException(
+          "Erreur lors de l'upload de la photo de profil",
+        );
+      }
     }
 
     return this.authRepository.update(userId, updateProfileDto);
@@ -43,10 +72,15 @@ export class ProfileService {
     return this.profileRepository.findAddressesByUserId(userId);
   }
 
-  async createAddress(userId: string, createAddressDto: CreateAddressDto): Promise<Address> {
+  async createAddress(
+    userId: string,
+    createAddressDto: CreateAddressDto,
+  ): Promise<Address> {
     // Si c'est la première adresse ou si isDefault est true, définir comme défaut
-    const existingAddresses = await this.profileRepository.findAddressesByUserId(userId);
-    const isDefault = createAddressDto.isDefault ?? existingAddresses.length === 0;
+    const existingAddresses =
+      await this.profileRepository.findAddressesByUserId(userId);
+    const isDefault =
+      createAddressDto.isDefault ?? existingAddresses.length === 0;
 
     if (isDefault && existingAddresses.length > 0) {
       // Désactiver les autres adresses par défaut
@@ -71,7 +105,10 @@ export class ProfileService {
     addressId: string,
     updateAddressDto: UpdateAddressDto,
   ): Promise<Address> {
-    const address = await this.profileRepository.findAddressById(addressId, userId);
+    const address = await this.profileRepository.findAddressById(
+      addressId,
+      userId,
+    );
     if (!address) {
       throw new NotFoundException('Adresse non trouvée');
     }
@@ -85,7 +122,10 @@ export class ProfileService {
   }
 
   async deleteAddress(userId: string, addressId: string): Promise<void> {
-    const address = await this.profileRepository.findAddressById(addressId, userId);
+    const address = await this.profileRepository.findAddressById(
+      addressId,
+      userId,
+    );
     if (!address) {
       throw new NotFoundException('Adresse non trouvée');
     }
@@ -94,8 +134,9 @@ export class ProfileService {
   }
 
   async getPreferences(userId: string): Promise<UserPreferences> {
-    let preferences = await this.profileRepository.findPreferencesByUserId(userId);
-    
+    let preferences =
+      await this.profileRepository.findPreferencesByUserId(userId);
+
     if (!preferences) {
       // Créer des préférences par défaut si elles n'existent pas
       preferences = await this.profileRepository.createPreferences({
@@ -110,19 +151,21 @@ export class ProfileService {
     userId: string,
     updatePreferencesDto: UpdatePreferencesDto,
   ): Promise<UserPreferences> {
-    let preferences = await this.profileRepository.findPreferencesByUserId(userId);
-    
+    let preferences =
+      await this.profileRepository.findPreferencesByUserId(userId);
+
     if (!preferences) {
       preferences = await this.profileRepository.createPreferences({
         userId,
         ...updatePreferencesDto,
       });
     } else {
-      preferences = await this.profileRepository.updatePreferences(userId, updatePreferencesDto);
+      preferences = await this.profileRepository.updatePreferences(
+        userId,
+        updatePreferencesDto,
+      );
     }
 
     return preferences;
   }
 }
-
-

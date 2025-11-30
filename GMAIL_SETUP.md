@@ -25,7 +25,7 @@ Cette erreur signifie que Gmail refuse l'authentification. Suivez ces étapes po
 2. Sélectionnez :
    - **Application** : `Mail`
    - **Appareil** : `Autre (nom personnalisé)`
-   - **Nom** : `Sendiaba API`
+   - **Nom** : `    `
 
 3. Cliquez sur **"Générer"**
 

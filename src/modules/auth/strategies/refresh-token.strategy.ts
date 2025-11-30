@@ -6,7 +6,10 @@ import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { AuthService } from '../auth.service';
 
 @Injectable()
-export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
+export class RefreshTokenStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
   constructor(
     private configService: ConfigService,
     private authService: AuthService,
@@ -24,19 +27,18 @@ export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'jwt-refres
     if (!refreshToken) {
       throw new UnauthorizedException('Token de rafraîchissement manquant');
     }
-    
+
     const user = await this.authService.validateUserById(payload.sub);
-    
+
     if (!user || !user.isActive || !user.refreshToken) {
       throw new UnauthorizedException('Token de rafraîchissement invalide');
     }
-    
+
     // Comparer les tokens (le refresh token stocké est le même que celui envoyé)
     if (user.refreshToken !== refreshToken) {
       throw new UnauthorizedException('Token de rafraîchissement invalide');
     }
-    
+
     return user;
   }
 }
-

@@ -46,7 +46,3 @@ export class UserPreferences {
   @JoinColumn({ name: 'userId' })
   user: User;
 }
-
-
-
-

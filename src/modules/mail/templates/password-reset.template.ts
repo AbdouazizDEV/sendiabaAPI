@@ -4,7 +4,9 @@ export interface PasswordResetTemplateData {
   resetToken: string;
 }
 
-export const passwordResetTemplate = (data: PasswordResetTemplateData): string => {
+export const passwordResetTemplate = (
+  data: PasswordResetTemplateData,
+): string => {
   const { firstName, resetLink } = data;
 
   return `
@@ -234,4 +236,3 @@ export const passwordResetTemplate = (data: PasswordResetTemplateData): string =
 </html>
   `;
 };
-

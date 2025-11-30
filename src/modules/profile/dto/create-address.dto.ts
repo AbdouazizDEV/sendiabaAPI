@@ -1,6 +1,5 @@
-import { IsString, IsEnum, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SenegalRegion } from '../entities/address.entity';
 
 export class CreateAddressDto {
   @ApiProperty({
@@ -39,12 +38,12 @@ export class CreateAddressDto {
   city: string;
 
   @ApiProperty({
-    description: 'Région du Sénégal',
-    enum: SenegalRegion,
-    example: SenegalRegion.DAKAR,
+    description:
+      "Région/État/Province (peut être n'importe quelle région dans le monde)",
+    example: 'Dakar',
   })
-  @IsEnum(SenegalRegion)
-  region: SenegalRegion;
+  @IsString()
+  region: string;
 
   @ApiPropertyOptional({
     description: 'Code postal',

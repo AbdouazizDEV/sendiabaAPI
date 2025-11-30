@@ -8,7 +8,3 @@ export const validationPipeConfig = new ValidationPipe({
     enableImplicitConversion: true,
   },
 });
-
-
-
-

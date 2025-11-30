@@ -6,13 +6,16 @@ import { ProfileRepository } from './profile.repository';
 import { Address } from './entities/address.entity';
 import { UserPreferences } from './entities/user-preferences.entity';
 import { AuthModule } from '../auth/auth.module';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Address, UserPreferences]), AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Address, UserPreferences]),
+    AuthModule,
+    CloudinaryModule,
+  ],
   controllers: [ProfileController],
   providers: [ProfileService, ProfileRepository],
   exports: [ProfileService],
 })
 export class ProfileModule {}
-
-

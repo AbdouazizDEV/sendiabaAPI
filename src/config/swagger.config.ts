@@ -17,7 +17,10 @@ export const setupSwagger = (app: INestApplication): void => {
       },
       'JWT-auth',
     )
-    .addTag('🔐 Authentication', 'Endpoints pour l\'authentification et la gestion des sessions')
+    .addTag(
+      '🔐 Authentication',
+      "Endpoints pour l'authentification et la gestion des sessions",
+    )
     .addTag('👤 Profile Management', 'Gestion du profil utilisateur')
     .addTag('📍 Addresses', 'Gestion des adresses utilisateur')
     .addTag('⚙️ Preferences', 'Gestion des préférences utilisateur')
@@ -30,7 +33,3 @@ export const setupSwagger = (app: INestApplication): void => {
     },
   });
 };
-
-
-
-

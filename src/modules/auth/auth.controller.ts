@@ -5,13 +5,17 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBody,
   ApiBearerAuth,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -31,11 +35,34 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('profilePicture'))
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({
-    summary: 'Inscription d\'un nouvel utilisateur',
-    description: 'Permet à un utilisateur de créer un compte avec tous les rôles disponibles (CUSTOMER, SELLER, ENTERPRISE, ADMIN, SUPER_ADMIN)',
+    summary: "Inscription d'un nouvel utilisateur",
+    description:
+      'Permet à un utilisateur de créer un compte avec tous les rôles disponibles (CUSTOMER, SELLER, ENTERPRISE, ADMIN, SUPER_ADMIN). Photo de profil optionnelle.',
   })
-  @ApiBody({ type: RegisterDto })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', format: 'email' },
+        password: { type: 'string', minLength: 8 },
+        firstName: { type: 'string' },
+        lastName: { type: 'string' },
+        phone: { type: 'string' },
+        role: {
+          type: 'string',
+          enum: ['CUSTOMER', 'SELLER', 'ENTERPRISE', 'ADMIN', 'SUPER_ADMIN'],
+        },
+        profilePicture: {
+          type: 'string',
+          format: 'binary',
+          description: 'Photo de profil (image)',
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
     description: 'Utilisateur créé avec succès',
@@ -89,8 +116,11 @@ export class AuthController {
       },
     },
   })
-  async register(@Body() registerDto: RegisterDto) {
-    const result = await this.authService.register(registerDto);
+  async register(
+    @Body() registerDto: RegisterDto,
+    @UploadedFile() profilePicture?: Express.Multer.File,
+  ) {
+    const result = await this.authService.register(registerDto, profilePicture);
     return {
       success: true,
       message: 'Inscription réussie',
@@ -101,11 +131,30 @@ export class AuthController {
 
   @Post('register-public')
   @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('profilePicture'))
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Inscription publique (sans choix de rôle)',
-    description: 'Permet à un utilisateur de créer un compte sans spécifier de rôle. Le rôle CUSTOMER sera attribué automatiquement.',
+    description:
+      'Permet à un utilisateur de créer un compte sans spécifier de rôle. Le rôle CUSTOMER sera attribué automatiquement. Photo de profil optionnelle.',
   })
-  @ApiBody({ type: RegisterPublicDto })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', format: 'email' },
+        password: { type: 'string', minLength: 8 },
+        firstName: { type: 'string' },
+        lastName: { type: 'string' },
+        phone: { type: 'string' },
+        profilePicture: {
+          type: 'string',
+          format: 'binary',
+          description: 'Photo de profil (image)',
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
     description: 'Utilisateur créé avec succès (rôle CUSTOMER par défaut)',
@@ -159,8 +208,14 @@ export class AuthController {
       },
     },
   })
-  async registerPublic(@Body() registerPublicDto: RegisterPublicDto) {
-    const result = await this.authService.registerPublic(registerPublicDto);
+  async registerPublic(
+    @Body() registerPublicDto: RegisterPublicDto,
+    @UploadedFile() profilePicture?: Express.Multer.File,
+  ) {
+    const result = await this.authService.registerPublic(
+      registerPublicDto,
+      profilePicture,
+    );
     return {
       success: true,
       message: 'Inscription réussie',
@@ -172,8 +227,9 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Connexion d\'un utilisateur',
-    description: 'Authentifie un utilisateur et retourne les tokens JWT (access et refresh)',
+    summary: "Connexion d'un utilisateur",
+    description:
+      'Authentifie un utilisateur et retourne les tokens JWT (access et refresh)',
   })
   @ApiBody({ type: LoginDto })
   @ApiResponse({
@@ -232,8 +288,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
-    summary: 'Déconnexion d\'un utilisateur',
-    description: 'Invalide le refresh token de l\'utilisateur connecté',
+    summary: "Déconnexion d'un utilisateur",
+    description: "Invalide le refresh token de l'utilisateur connecté",
   })
   @ApiResponse({
     status: 200,
@@ -265,16 +321,18 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Demande de réinitialisation de mot de passe',
-    description: 'Envoie un email avec un lien de réinitialisation de mot de passe',
+    description:
+      'Envoie un email avec un lien de réinitialisation de mot de passe',
   })
   @ApiBody({ type: ForgotPasswordDto })
   @ApiResponse({
     status: 200,
-    description: 'Email de réinitialisation envoyé (si l\'email existe)',
+    description: "Email de réinitialisation envoyé (si l'email existe)",
     schema: {
       example: {
         success: true,
-        message: 'Si cet email existe, un lien de réinitialisation a été envoyé',
+        message:
+          'Si cet email existe, un lien de réinitialisation a été envoyé',
         data: null,
         timestamp: '2025-01-01T00:00:00.000Z',
       },
@@ -336,8 +394,9 @@ export class AuthController {
   @UseGuards(RefreshTokenGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Rafraîchir le token d\'accès',
-    description: 'Génère un nouveau access token et refresh token à partir du refresh token',
+    summary: "Rafraîchir le token d'accès",
+    description:
+      'Génère un nouveau access token et refresh token à partir du refresh token',
   })
   @ApiBody({
     schema: {
@@ -376,7 +435,10 @@ export class AuthController {
     status: 401,
     description: 'Refresh token invalide',
   })
-  async refresh(@CurrentUser() user: User, @Body('refreshToken') refreshToken: string) {
+  async refresh(
+    @CurrentUser() user: User,
+    @Body('refreshToken') refreshToken: string,
+  ) {
     const result = await this.authService.refreshToken(user.id, refreshToken);
     return {
       success: true,

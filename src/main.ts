@@ -37,13 +37,18 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Configuration pour les uploads de fichiers (form-data)
+  // Multer est configuré automatiquement par @nestjs/platform-express
+
   // Configuration Swagger
   setupSwagger(app);
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
 
-  console.log(`🚀 Application is running on: http://localhost:${port}/${apiPrefix}`);
+  console.log(
+    `🚀 Application is running on: http://localhost:${port}/${apiPrefix}`,
+  );
   console.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
 }
 bootstrap();

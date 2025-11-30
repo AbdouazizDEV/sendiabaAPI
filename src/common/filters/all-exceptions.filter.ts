@@ -29,8 +29,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const errorResponse = {
       success: false,
-      message: typeof message === 'string' ? message : (message as any).message || 'Erreur interne du serveur',
-      error: exception instanceof HttpException ? exception.name : 'InternalServerError',
+      message:
+        typeof message === 'string'
+          ? message
+          : (message as any).message || 'Erreur interne du serveur',
+      error:
+        exception instanceof HttpException
+          ? exception.name
+          : 'InternalServerError',
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
@@ -45,5 +51,3 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(status).json(errorResponse);
   }
 }
-
-

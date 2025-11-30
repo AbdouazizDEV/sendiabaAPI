@@ -29,12 +29,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     };
 
     // Si c'est une erreur de validation, inclure les détails
-    if (status === HttpStatus.BAD_REQUEST && Array.isArray((exceptionResponse as any).message)) {
+    if (
+      status === HttpStatus.BAD_REQUEST &&
+      Array.isArray((exceptionResponse as any).message)
+    ) {
       errorResponse['errors'] = (exceptionResponse as any).message;
     }
 
     response.status(status).json(errorResponse);
   }
 }
-
-

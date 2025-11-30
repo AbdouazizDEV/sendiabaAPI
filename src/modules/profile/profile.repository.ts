@@ -32,7 +32,10 @@ export class ProfileRepository {
     return this.addressRepository.save(address);
   }
 
-  async updateAddress(id: string, updateData: Partial<Address>): Promise<Address> {
+  async updateAddress(
+    id: string,
+    updateData: Partial<Address>,
+  ): Promise<Address> {
     await this.addressRepository.update(id, updateData);
     const address = await this.addressRepository.findOne({ where: { id } });
     if (!address) {
@@ -47,22 +50,23 @@ export class ProfileRepository {
 
   async setDefaultAddress(userId: string, addressId: string): Promise<void> {
     // Désactiver toutes les adresses par défaut
-    await this.addressRepository.update(
-      { userId },
-      { isDefault: false },
-    );
+    await this.addressRepository.update({ userId }, { isDefault: false });
     // Activer l'adresse spécifiée
     await this.addressRepository.update(addressId, { isDefault: true });
   }
 
   // Preferences methods
-  async findPreferencesByUserId(userId: string): Promise<UserPreferences | null> {
+  async findPreferencesByUserId(
+    userId: string,
+  ): Promise<UserPreferences | null> {
     return this.preferencesRepository.findOne({
       where: { userId },
     });
   }
 
-  async createPreferences(preferencesData: Partial<UserPreferences>): Promise<UserPreferences> {
+  async createPreferences(
+    preferencesData: Partial<UserPreferences>,
+  ): Promise<UserPreferences> {
     const preferences = this.preferencesRepository.create(preferencesData);
     return this.preferencesRepository.save(preferences);
   }

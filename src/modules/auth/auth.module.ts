@@ -12,6 +12,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
 import jwtConfig from '../../config/jwt.config';
 import { MailModule } from '../mail/mail.module';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -20,7 +21,8 @@ import { MailModule } from '../mail/mail.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const secret = configService.get<string>('jwt.secret') || 'default-secret';
+        const secret =
+          configService.get<string>('jwt.secret') || 'default-secret';
         const expiresIn = configService.get<string>('jwt.expiresIn') || '15m';
         return {
           secret,
@@ -33,6 +35,7 @@ import { MailModule } from '../mail/mail.module';
     }),
     ConfigModule.forFeature(jwtConfig),
     MailModule,
+    CloudinaryModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, AuthRepository, JwtStrategy, RefreshTokenStrategy],

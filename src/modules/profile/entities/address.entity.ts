@@ -9,21 +9,6 @@ import {
 } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 
-export enum SenegalRegion {
-  DAKAR = 'Dakar',
-  THIES = 'Thiès',
-  SAINT_LOUIS = 'Saint-Louis',
-  ZIGUINCHOR = 'Ziguinchor',
-  TAMBACOUNDA = 'Tambacounda',
-  KAOLACK = 'Kaolack',
-  LOUGA = 'Louga',
-  FATICK = 'Fatick',
-  KOLDA = 'Kolda',
-  MATAM = 'Matam',
-  KEDOUGOU = 'Kédougou',
-  SEDHIOU = 'Sédhiou',
-}
-
 @Entity('addresses')
 export class Address {
   @PrimaryGeneratedColumn('uuid')
@@ -47,11 +32,8 @@ export class Address {
   @Column()
   city: string;
 
-  @Column({
-    type: 'enum',
-    enum: SenegalRegion,
-  })
-  region: SenegalRegion;
+  @Column()
+  region: string;
 
   @Column({ nullable: true })
   postalCode: string;
@@ -73,7 +55,3 @@ export class Address {
   @JoinColumn({ name: 'userId' })
   user: User;
 }
-
-
-
-

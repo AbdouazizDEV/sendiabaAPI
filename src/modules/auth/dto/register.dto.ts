@@ -1,36 +1,47 @@
-import { IsEmail, IsString, MinLength, IsEnum, IsOptional, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  IsEnum,
+  IsOptional,
+  Matches,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../entities/user.entity';
 
 export class RegisterDto {
   @ApiProperty({
-    description: 'Adresse email de l\'utilisateur',
+    description: "Adresse email de l'utilisateur",
     example: 'user@example.com',
   })
-  @IsEmail({}, { message: 'L\'email doit être valide' })
+  @IsEmail({}, { message: "L'email doit être valide" })
   email: string;
 
   @ApiProperty({
-    description: 'Mot de passe (minimum 8 caractères, avec majuscule, minuscule et chiffre)',
+    description:
+      'Mot de passe (minimum 8 caractères, avec majuscule, minuscule et chiffre)',
     example: 'Password123',
     minLength: 8,
   })
   @IsString()
-  @MinLength(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' })
+  @MinLength(8, {
+    message: 'Le mot de passe doit contenir au moins 8 caractères',
+  })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message: 'Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre',
+    message:
+      'Le mot de passe doit contenir au moins une majuscule, une minuscule et un chiffre',
   })
   password: string;
 
   @ApiProperty({
-    description: 'Prénom de l\'utilisateur',
+    description: "Prénom de l'utilisateur",
     example: 'Amadou',
   })
   @IsString()
   firstName: string;
 
   @ApiProperty({
-    description: 'Nom de l\'utilisateur',
+    description: "Nom de l'utilisateur",
     example: 'Diallo',
   })
   @IsString()
@@ -48,14 +59,10 @@ export class RegisterDto {
   phone?: string;
 
   @ApiProperty({
-    description: 'Rôle de l\'utilisateur',
+    description: "Rôle de l'utilisateur",
     enum: UserRole,
     example: UserRole.CUSTOMER,
   })
   @IsEnum(UserRole, { message: 'Le rôle doit être valide' })
   role: UserRole;
 }
-
-
-
-

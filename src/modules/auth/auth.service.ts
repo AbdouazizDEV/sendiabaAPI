@@ -22,6 +22,7 @@ import { UserPreferences } from '../profile/entities/user-preferences.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MailService } from '../mail/mail.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 export interface AuthResponse {
   accessToken: string;
@@ -40,6 +41,7 @@ export class AuthService {
     @InjectRepository(UserPreferences)
     private readonly preferencesRepository: Repository<UserPreferences>,
     private readonly mailService: MailService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {
     this.saltRounds = parseInt(
       this.configService.get<string>('BCRYPT_SALT_ROUNDS', '12'),
@@ -47,19 +49,49 @@ export class AuthService {
     );
   }
 
-  async register(registerDto: RegisterDto): Promise<AuthResponse> {
-    const existingUser = await this.authRepository.findByEmail(registerDto.email);
+  async register(
+    registerDto: RegisterDto,
+    profilePictureFile?: Express.Multer.File,
+  ): Promise<AuthResponse> {
+    const existingUser = await this.authRepository.findByEmail(
+      registerDto.email,
+    );
     if (existingUser) {
       throw new ConflictException('Cet email est déjà utilisé');
     }
 
-    const hashedPassword = await bcrypt.hash(registerDto.password, this.saltRounds);
+    const hashedPassword = await bcrypt.hash(
+      registerDto.password,
+      this.saltRounds,
+    );
+
+    let profilePictureUrl: string | null = null;
+    if (profilePictureFile) {
+      // On va uploader après la création de l'utilisateur pour avoir l'ID
+      // Pour l'instant, on crée l'utilisateur sans photo
+    }
 
     const user = await this.authRepository.create({
       ...registerDto,
       password: hashedPassword,
       email: registerDto.email.toLowerCase(),
+      profilePicture: null,
     });
+
+    // Upload de la photo de profil si fournie
+    if (profilePictureFile) {
+      try {
+        profilePictureUrl = await this.cloudinaryService.uploadProfilePicture(
+          profilePictureFile,
+          user.id,
+        );
+        user.profilePicture = profilePictureUrl;
+        await this.authRepository.save(user);
+      } catch (error) {
+        // Si l'upload échoue, on continue sans photo
+        console.error("Erreur lors de l'upload de la photo de profil:", error);
+      }
+    }
 
     // Créer les préférences par défaut
     const preferences = this.preferencesRepository.create({
@@ -76,13 +108,21 @@ export class AuthService {
     };
   }
 
-  async registerPublic(registerPublicDto: RegisterPublicDto): Promise<AuthResponse> {
-    const existingUser = await this.authRepository.findByEmail(registerPublicDto.email);
+  async registerPublic(
+    registerPublicDto: RegisterPublicDto,
+    profilePictureFile?: Express.Multer.File,
+  ): Promise<AuthResponse> {
+    const existingUser = await this.authRepository.findByEmail(
+      registerPublicDto.email,
+    );
     if (existingUser) {
       throw new ConflictException('Cet email est déjà utilisé');
     }
 
-    const hashedPassword = await bcrypt.hash(registerPublicDto.password, this.saltRounds);
+    const hashedPassword = await bcrypt.hash(
+      registerPublicDto.password,
+      this.saltRounds,
+    );
 
     // Créer l'utilisateur avec le rôle CUSTOMER par défaut
     const user = await this.authRepository.create({
@@ -90,7 +130,24 @@ export class AuthService {
       password: hashedPassword,
       email: registerPublicDto.email.toLowerCase(),
       role: UserRole.CUSTOMER, // Rôle par défaut pour l'inscription publique
+      profilePicture: null,
     });
+
+    // Upload de la photo de profil si fournie
+    if (profilePictureFile) {
+      try {
+        const profilePictureUrl =
+          await this.cloudinaryService.uploadProfilePicture(
+            profilePictureFile,
+            user.id,
+          );
+        user.profilePicture = profilePictureUrl;
+        await this.authRepository.save(user);
+      } catch (error) {
+        // Si l'upload échoue, on continue sans photo
+        console.error("Erreur lors de l'upload de la photo de profil:", error);
+      }
+    }
 
     // Créer les préférences par défaut
     const preferences = this.preferencesRepository.create({
@@ -113,7 +170,10 @@ export class AuthService {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
@@ -165,12 +225,17 @@ export class AuthService {
     } catch (error) {
       // Logger l'erreur mais ne pas faire échouer la requête
       // L'utilisateur a déjà reçu le token, on log juste l'erreur d'envoi
-      console.error('Erreur lors de l\'envoi de l\'email de réinitialisation:', error);
+      console.error(
+        "Erreur lors de l'envoi de l'email de réinitialisation:",
+        error,
+      );
     }
   }
 
   async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<void> {
-    const user = await this.authRepository.findByPasswordResetToken(resetPasswordDto.token);
+    const user = await this.authRepository.findByPasswordResetToken(
+      resetPasswordDto.token,
+    );
 
     if (!user) {
       throw new BadRequestException('Token de réinitialisation invalide');
@@ -180,7 +245,10 @@ export class AuthService {
       throw new BadRequestException('Le token de réinitialisation a expiré');
     }
 
-    const hashedPassword = await bcrypt.hash(resetPasswordDto.newPassword, this.saltRounds);
+    const hashedPassword = await bcrypt.hash(
+      resetPasswordDto.newPassword,
+      this.saltRounds,
+    );
 
     await this.authRepository.update(user.id, {
       password: hashedPassword,
@@ -189,7 +257,10 @@ export class AuthService {
     });
   }
 
-  async refreshToken(userId: string, refreshToken: string): Promise<AuthResponse> {
+  async refreshToken(
+    userId: string,
+    refreshToken: string,
+  ): Promise<AuthResponse> {
     const user = await this.authRepository.findById(userId);
     if (!user || !user.isActive || user.refreshToken !== refreshToken) {
       throw new UnauthorizedException('Token de rafraîchissement invalide');
@@ -208,17 +279,23 @@ export class AuthService {
     return this.authRepository.findById(id);
   }
 
-  private async generateTokens(user: User): Promise<{ accessToken: string; refreshToken: string }> {
+  private async generateTokens(
+    user: User,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
     };
 
-    const secret = this.configService.get<string>('jwt.secret') || 'default-secret';
+    const secret =
+      this.configService.get<string>('jwt.secret') || 'default-secret';
     const expiresIn = this.configService.get<string>('jwt.expiresIn') || '15m';
-    const refreshSecret = this.configService.get<string>('jwt.refreshSecret') || 'default-refresh-secret';
-    const refreshExpiresIn = this.configService.get<string>('jwt.refreshExpiresIn') || '7d';
+    const refreshSecret =
+      this.configService.get<string>('jwt.refreshSecret') ||
+      'default-refresh-secret';
+    const refreshExpiresIn =
+      this.configService.get<string>('jwt.refreshExpiresIn') || '7d';
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -234,14 +311,18 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  private async updateRefreshToken(userId: string, refreshToken: string): Promise<void> {
+  private async updateRefreshToken(
+    userId: string,
+    refreshToken: string,
+  ): Promise<void> {
     // Stocker le refresh token tel quel (on le hash dans la stratégie de validation)
     await this.authRepository.update(userId, { refreshToken });
   }
 
-  private sanitizeUser(user: User): Omit<User, 'password' | 'refreshToken' | 'passwordResetToken'> {
+  private sanitizeUser(
+    user: User,
+  ): Omit<User, 'password' | 'refreshToken' | 'passwordResetToken'> {
     const { password, refreshToken, passwordResetToken, ...sanitized } = user;
     return sanitized;
   }
 }
-

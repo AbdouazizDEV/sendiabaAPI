@@ -9,13 +9,18 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiParam,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { ProfileService } from './profile.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -36,7 +41,8 @@ export class ProfileController {
   @Get()
   @ApiOperation({
     summary: 'Récupérer le profil utilisateur',
-    description: 'Retourne les informations du profil de l\'utilisateur connecté',
+    description:
+      "Retourne les informations du profil de l'utilisateur connecté",
   })
   @ApiResponse({
     status: 200,
@@ -74,9 +80,27 @@ export class ProfileController {
 
   @Put()
   @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('profilePicture'))
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Modifier le profil utilisateur',
-    description: 'Met à jour les informations du profil de l\'utilisateur connecté',
+    description:
+      "Met à jour les informations du profil de l'utilisateur connecté. Photo de profil optionnelle.",
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        firstName: { type: 'string' },
+        lastName: { type: 'string' },
+        phone: { type: 'string' },
+        profilePicture: {
+          type: 'string',
+          format: 'binary',
+          description: 'Photo de profil (image)',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 200,
@@ -87,8 +111,13 @@ export class ProfileController {
   async updateProfile(
     @CurrentUser() user: User,
     @Body() updateProfileDto: UpdateProfileDto,
+    @UploadedFile() profilePicture?: Express.Multer.File,
   ) {
-    const profile = await this.profileService.updateProfile(user.id, updateProfileDto);
+    const profile = await this.profileService.updateProfile(
+      user.id,
+      updateProfileDto,
+      profilePicture,
+    );
     return {
       success: true,
       message: 'Profil modifié avec succès',
@@ -101,7 +130,7 @@ export class ProfileController {
   @ApiTags('📍 Addresses')
   @ApiOperation({
     summary: 'Liste des adresses',
-    description: 'Retourne toutes les adresses de l\'utilisateur connecté',
+    description: "Retourne toutes les adresses de l'utilisateur connecté",
   })
   @ApiResponse({
     status: 200,
@@ -147,7 +176,7 @@ export class ProfileController {
   @ApiTags('📍 Addresses')
   @ApiOperation({
     summary: 'Ajouter une adresse',
-    description: 'Ajoute une nouvelle adresse pour l\'utilisateur connecté',
+    description: "Ajoute une nouvelle adresse pour l'utilisateur connecté",
   })
   @ApiResponse({
     status: 201,
@@ -158,7 +187,10 @@ export class ProfileController {
     @CurrentUser() user: User,
     @Body() createAddressDto: CreateAddressDto,
   ) {
-    const address = await this.profileService.createAddress(user.id, createAddressDto);
+    const address = await this.profileService.createAddress(
+      user.id,
+      createAddressDto,
+    );
     return {
       success: true,
       message: 'Adresse créée avec succès',
@@ -172,11 +204,11 @@ export class ProfileController {
   @ApiTags('📍 Addresses')
   @ApiOperation({
     summary: 'Modifier une adresse',
-    description: 'Met à jour une adresse existante de l\'utilisateur connecté',
+    description: "Met à jour une adresse existante de l'utilisateur connecté",
   })
   @ApiParam({
     name: 'id',
-    description: 'ID de l\'adresse',
+    description: "ID de l'adresse",
     type: 'string',
     format: 'uuid',
   })
@@ -209,11 +241,11 @@ export class ProfileController {
   @ApiTags('📍 Addresses')
   @ApiOperation({
     summary: 'Supprimer une adresse',
-    description: 'Supprime une adresse de l\'utilisateur connecté',
+    description: "Supprime une adresse de l'utilisateur connecté",
   })
   @ApiParam({
     name: 'id',
-    description: 'ID de l\'adresse',
+    description: "ID de l'adresse",
     type: 'string',
     format: 'uuid',
   })
@@ -223,7 +255,10 @@ export class ProfileController {
   })
   @ApiResponse({ status: 401, description: 'Non authentifié' })
   @ApiResponse({ status: 404, description: 'Adresse non trouvée' })
-  async deleteAddress(@CurrentUser() user: User, @Param('id') addressId: string) {
+  async deleteAddress(
+    @CurrentUser() user: User,
+    @Param('id') addressId: string,
+  ) {
     await this.profileService.deleteAddress(user.id, addressId);
     return {
       success: true,
@@ -238,7 +273,7 @@ export class ProfileController {
   @ApiTags('⚙️ Preferences')
   @ApiOperation({
     summary: 'Modifier les préférences',
-    description: 'Met à jour les préférences de l\'utilisateur connecté',
+    description: "Met à jour les préférences de l'utilisateur connecté",
   })
   @ApiResponse({
     status: 200,
@@ -284,7 +319,7 @@ export class ProfileController {
   @ApiTags('⚙️ Preferences')
   @ApiOperation({
     summary: 'Récupérer les préférences',
-    description: 'Retourne les préférences de l\'utilisateur connecté',
+    description: "Retourne les préférences de l'utilisateur connecté",
   })
   @ApiResponse({
     status: 200,
@@ -301,5 +336,3 @@ export class ProfileController {
     };
   }
 }
-
-
