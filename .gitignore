@@ -43,3 +43,5 @@ lerna-debug.log*
 *.tsbuildinfo
 
 
+
+/generated/prisma

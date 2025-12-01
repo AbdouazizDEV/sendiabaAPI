@@ -25,6 +25,8 @@ export const setupSwagger = (app: INestApplication): void => {
     .addTag('📍 Addresses', 'Gestion des adresses utilisateur')
     .addTag('⚙️ Preferences', 'Gestion des préférences utilisateur')
     .addTag('🔒 Sécurité et Confidentialité', 'Gestion de la sécurité et confidentialité')
+    .addTag('📦 Gestion des Produits', 'Gestion des produits pour les vendeurs')
+    .addTag('📂 Catégories', 'Gestion des catégories de produits')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

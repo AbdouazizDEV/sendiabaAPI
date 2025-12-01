@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                       String                @id(map: "PK_a3ffb1c0c8416b9fc6f907b7433") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email                    String                @unique(map: "UQ_97672ac88f789774dd47f7c8be3") @db.VarChar
+  password                 String                @db.VarChar
+  role                     users_role_enum       @default(CUSTOMER)
+  firstName                String                @db.VarChar
+  lastName                 String                @db.VarChar
+  phone                    String?               @db.VarChar
+  isEmailVerified          Boolean               @default(false)
+  isActive                 Boolean               @default(true)
+  lastLogin                DateTime?             @db.Timestamp(6)
+  refreshToken             String?               @db.VarChar
+  passwordResetToken       String?               @db.VarChar
+  passwordResetExpires     DateTime?             @db.Timestamp(6)
+  createdAt                DateTime              @default(now()) @db.Timestamp(6)
+  updatedAt                DateTime              @default(now()) @updatedAt @db.Timestamp(6)
+  profilePicture           String?               @db.VarChar
+  emailVerificationToken   String?               @db.VarChar
+  emailVerificationExpires DateTime?             @db.Timestamp(6)
+  addresses                Address[]
+  categories               Category[]            @relation("CategoryCreator")
+  loginActivities          LoginActivity[]
+  products                 Product[]
+  preferences              UserPreferences?
+  securitySettings         UserSecuritySettings?
+
+  @@index([email], map: "IDX_97672ac88f789774dd47f7c8be")
+  @@map("users")
+}
+
+model Address {
+  id            String   @id(map: "PK_745d8f43d3af10ab8247465e450") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId        String   @db.Uuid
+  label         String   @db.VarChar
+  recipientName String   @db.VarChar
+  phone         String   @db.VarChar
+  address       String
+  city          String   @db.VarChar
+  postalCode    String?  @db.VarChar
+  country       String   @default("Sénégal") @db.VarChar
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  region        String   @db.VarChar
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_95c93a584de49f0b0e13f753630")
+
+  @@map("addresses")
+}
+
+model UserPreferences {
+  id                 String   @id(map: "PK_e8cfb5b31af61cd363a6b6d7c25") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId             String   @unique(map: "UQ_b6202d1cacc63a0b9c8dac2abd4") @db.Uuid
+  emailNotifications Boolean  @default(true)
+  smsNotifications   Boolean  @default(true)
+  pushNotifications  Boolean  @default(true)
+  marketingEmails    Boolean  @default(false)
+  language           String   @default("fr") @db.VarChar
+  currency           String   @default("XOF") @db.VarChar
+  createdAt          DateTime @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK_b6202d1cacc63a0b9c8dac2abd4")
+
+  @@map("user_preferences")
+}
+
+model UserSecuritySettings {
+  id                 String   @id(map: "PK_db3c1ccc2bca1958f353b59586d") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId             String   @unique(map: "UQ_19bc5149a55b8ffb9e710da3f5f") @db.Uuid
+  profileVisibility  Boolean  @default(true)
+  showEmail          Boolean  @default(true)
+  showPhone          Boolean  @default(true)
+  allowMessages      Boolean  @default(true)
+  twoFactorEnabled   Boolean  @default(false)
+  twoFactorSecret    String?  @db.VarChar
+  emailNotifications Boolean  @default(true)
+  loginAlerts        Boolean  @default(true)
+  deviceManagement   Boolean  @default(true)
+  sessionTimeout     Int      @default(30)
+  createdAt          DateTime @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  user               User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_19bc5149a55b8ffb9e710da3f5f")
+
+  @@map("user_security_settings")
+}
+
+model LoginActivity {
+  id            String   @id(map: "PK_5e930c4a22ae21222fcae279d2a") @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId        String   @db.Uuid
+  ipAddress     String   @db.VarChar
+  userAgent     String?  @db.VarChar
+  device        String?  @db.VarChar
+  browser       String?  @db.VarChar
+  location      String?  @db.VarChar
+  success       Boolean  @default(true)
+  failureReason String?  @db.VarChar
+  createdAt     DateTime @default(now()) @db.Timestamp(6)
+  user          User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_c377206365d1e5b49abc060a685")
+
+  @@index([userId, createdAt], map: "IDX_91e18bd7cc41fb911e62d3dc22")
+  @@index([userId], map: "IDX_c377206365d1e5b49abc060a68")
+  @@map("login_activities")
+}
+
+model Category {
+  id          String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String     @db.VarChar
+  slug        String     @unique @db.VarChar
+  description String?
+  image       String?    @db.VarChar
+  parentId    String?    @db.Uuid
+  createdById String?    @db.Uuid
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime   @default(now()) @updatedAt @db.Timestamp(6)
+  createdBy   User?      @relation("CategoryCreator", fields: [createdById], references: [id], onUpdate: NoAction)
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onUpdate: NoAction)
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]
+
+  @@index([slug])
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Product {
+  id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sellerId         String           @db.Uuid
+  categoryId       String           @db.Uuid
+  name             String           @db.VarChar
+  slug             String           @unique @db.VarChar
+  description      String
+  shortDescription String?
+  sku              String?          @unique @db.VarChar
+  status           ProductStatus    @default(DRAFT)
+  price            Decimal          @db.Decimal(10, 2)
+  compareAtPrice   Decimal?         @db.Decimal(10, 2)
+  costPrice        Decimal?         @db.Decimal(10, 2)
+  weight           Decimal?         @db.Decimal(8, 2)
+  dimensions       String?          @db.VarChar
+  tags             String[]         @default([])
+  isDigital        Boolean          @default(false)
+  requiresShipping Boolean          @default(true)
+  trackInventory   Boolean          @default(true)
+  allowBackorder   Boolean          @default(false)
+  createdAt        DateTime         @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime         @default(now()) @updatedAt @db.Timestamp(6)
+  inventoryAlerts  InventoryAlert[]
+  images           ProductImage[]
+  stock            ProductStock?
+  category         Category         @relation(fields: [categoryId], references: [id], onUpdate: NoAction)
+  seller           User             @relation(fields: [sellerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([sellerId])
+  @@index([categoryId])
+  @@index([slug])
+  @@index([sku])
+  @@index([status])
+  @@map("products")
+}
+
+model ProductImage {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  productId    String   @db.Uuid
+  url          String   @db.VarChar
+  cloudinaryId String?  @db.VarChar
+  alt          String?  @db.VarChar
+  order        Int      @default(0)
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now()) @db.Timestamp(6)
+  updatedAt    DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([productId])
+  @@index([productId, order])
+  @@map("product_images")
+}
+
+model ProductStock {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  productId         String   @unique @db.Uuid
+  quantity          Int      @default(0)
+  reservedQuantity  Int      @default(0)
+  lowStockThreshold Int      @default(10)
+  location          String?  @db.VarChar
+  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("product_stocks")
+}
+
+model InventoryAlert {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  productId   String   @db.Uuid
+  threshold   Int
+  isActive    Boolean  @default(true)
+  notifyEmail Boolean  @default(true)
+  notifySms   Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([productId])
+  @@map("inventory_alerts")
+}
+
+enum users_role_enum {
+  CUSTOMER
+  SELLER
+  ENTERPRISE
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+  ARCHIVED
+}

@@ -42,11 +42,23 @@ export class AllExceptionsFilter implements ExceptionFilter {
       path: request.url,
     };
 
-    // Logger l'erreur
-    this.logger.error(
-      `${request.method} ${request.url}`,
-      exception instanceof Error ? exception.stack : JSON.stringify(exception),
-    );
+    // Logger l'erreur avec plus de détails
+    if (exception instanceof Error) {
+      this.logger.error(
+        `Erreur ${status} sur ${request.method} ${request.url}`,
+        exception.stack || exception.message,
+      );
+      this.logger.error('Détails de l\'erreur:', {
+        message: exception.message,
+        name: exception.name,
+        stack: exception.stack,
+      });
+    } else {
+      this.logger.error(
+        `Erreur ${status} sur ${request.method} ${request.url}`,
+        JSON.stringify(exception, null, 2),
+      );
+    }
 
     response.status(status).json(errorResponse);
   }
