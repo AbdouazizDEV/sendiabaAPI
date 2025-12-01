@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProfileModule } from './modules/profile/profile.module';
+import { SecurityModule } from './modules/security/security.module';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 
@@ -28,6 +29,7 @@ import jwtConfig from './config/jwt.config';
     }),
     AuthModule,
     ProfileModule,
+    SecurityModule,
   ],
   controllers: [AppController],
   providers: [AppService],

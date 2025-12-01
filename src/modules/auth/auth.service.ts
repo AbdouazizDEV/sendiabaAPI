@@ -23,6 +23,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MailService } from '../mail/mail.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { Logger } from '@nestjs/common';
 
 export interface AuthResponse {
   accessToken: string;
@@ -32,6 +33,7 @@ export interface AuthResponse {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly saltRounds: number;
 
   constructor(
@@ -154,6 +156,30 @@ export class AuthService {
       userId: user.id,
     });
     await this.preferencesRepository.save(preferences);
+
+    // Générer le token de vérification email
+    const emailVerificationToken = uuidv4();
+    const emailVerificationExpires = new Date();
+    emailVerificationExpires.setHours(emailVerificationExpires.getHours() + 24); // 24 heures
+
+    await this.authRepository.update(user.id, {
+      emailVerificationToken,
+      emailVerificationExpires,
+    });
+
+    // Envoyer l'email de vérification
+    try {
+      await this.mailService.sendVerificationEmail(
+        user.email,
+        emailVerificationToken,
+        user.firstName,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Erreur lors de l'envoi de l'email de vérification: ${error.message}`,
+      );
+      // On continue même si l'email échoue
+    }
 
     const tokens = await this.generateTokens(user);
     await this.updateRefreshToken(user.id, tokens.refreshToken);

@@ -95,6 +95,67 @@ export class MailService {
     }
   }
 
+  async sendVerificationEmail(
+    email: string,
+    verificationToken: string,
+    firstName?: string,
+  ): Promise<void> {
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4200';
+    const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
+
+    const mailOptions = {
+      from: `"Sendiaba" <${this.configService.get<string>('MAIL_FROM')}>`,
+      to: email,
+      subject: 'Vérifiez votre adresse email - Sendiaba',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Bienvenue sur Sendiaba !</h1>
+            </div>
+            <div class="content">
+              <p>Bonjour ${firstName || 'Cher utilisateur'},</p>
+              <p>Merci de vous être inscrit sur Sendiaba. Pour activer votre compte, veuillez vérifier votre adresse email en cliquant sur le bouton ci-dessous :</p>
+              <p style="text-align: center;">
+                <a href="${verificationLink}" class="button">Vérifier mon email</a>
+              </p>
+              <p>Ou copiez-collez ce lien dans votre navigateur :</p>
+              <p style="word-break: break-all; color: #667eea;">${verificationLink}</p>
+              <p>Ce lien est valide pendant 24 heures.</p>
+              <p>Si vous n'avez pas créé de compte sur Sendiaba, vous pouvez ignorer cet email.</p>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} Sendiaba. Tous droits réservés.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`✅ Email de vérification envoyé à ${email}`);
+    } catch (error: any) {
+      this.logger.error(`❌ Erreur lors de l'envoi de l'email de vérification à ${email}`);
+      throw error;
+    }
+  }
+
   async verifyConnection(): Promise<boolean> {
     try {
       await this.transporter.verify();
