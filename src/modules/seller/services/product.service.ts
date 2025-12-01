@@ -694,26 +694,79 @@ export class ProductService {
 
   async getProductsByCategory(sellerId: string) {
     try {
+      this.logger.log(`Récupération des produits pour le vendeur: ${sellerId}`);
+
+      // Récupérer les produits avec leurs relations
       const products = await this.prisma.product.findMany({
         where: { sellerId },
         include: {
-          category: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              description: true,
+            },
+          },
           images: {
             orderBy: { order: 'asc' },
             take: 1,
+            select: {
+              id: true,
+              url: true,
+              alt: true,
+              order: true,
+              isPrimary: true,
+            },
           },
-          stock: true,
+          stock: {
+            select: {
+              id: true,
+              quantity: true,
+              reservedQuantity: true,
+              lowStockThreshold: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
       });
 
+      this.logger.log(`Nombre de produits trouvés: ${products.length}`);
+
+      // Si aucun produit, retourner un tableau vide
+      if (!products || products.length === 0) {
+        return [];
+      }
+
       // Grouper par catégorie
-      const grouped = products.reduce((acc, product) => {
+      const groupedMap = new Map<
+        string,
+        {
+          category: {
+            id: string;
+            name: string;
+            slug: string;
+            description: string | null;
+          };
+          products: any[];
+          count: number;
+        }
+      >();
+
+      for (const product of products) {
+        // Vérifier que la catégorie existe
+        if (!product.category || !product.category.id) {
+          this.logger.warn(
+            `Produit ${product.id} n'a pas de catégorie, ignoré`,
+          );
+          continue;
+        }
+
         const categoryId = product.category.id;
-        const categoryName = product.category.name;
-        
-        if (!acc[categoryId]) {
-          acc[categoryId] = {
+
+        // Initialiser le groupe si nécessaire
+        if (!groupedMap.has(categoryId)) {
+          groupedMap.set(categoryId, {
             category: {
               id: product.category.id,
               name: product.category.name,
@@ -722,20 +775,70 @@ export class ProductService {
             },
             products: [],
             count: 0,
-          };
+          });
         }
-        
-        acc[categoryId].products.push(product);
-        acc[categoryId].count += 1;
-        
-        return acc;
-      }, {} as Record<string, { category: any; products: any[]; count: number }>);
 
-      return Object.values(grouped);
+        const group = groupedMap.get(categoryId)!;
+
+        // Préparer le produit pour la sérialisation
+        const productData: any = {
+          id: product.id,
+          name: product.name,
+          slug: product.slug,
+          description: product.description,
+          shortDescription: product.shortDescription,
+          sku: product.sku,
+          status: product.status,
+          price:
+            product.price !== null && product.price !== undefined
+              ? parseFloat(String(product.price))
+              : null,
+          compareAtPrice:
+            product.compareAtPrice !== null &&
+            product.compareAtPrice !== undefined
+              ? parseFloat(String(product.compareAtPrice))
+              : null,
+          costPrice:
+            product.costPrice !== null && product.costPrice !== undefined
+              ? parseFloat(String(product.costPrice))
+              : null,
+          weight:
+            product.weight !== null && product.weight !== undefined
+              ? parseFloat(String(product.weight))
+              : null,
+          dimensions: product.dimensions,
+          tags: product.tags || [],
+          isDigital: product.isDigital,
+          requiresShipping: product.requiresShipping,
+          trackInventory: product.trackInventory,
+          allowBackorder: product.allowBackorder,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt,
+          images: product.images || [],
+          stock: product.stock || null,
+        };
+
+        group.products.push(productData);
+        group.count += 1;
+      }
+
+      const result = Array.from(groupedMap.values());
+      this.logger.log(`Groupement terminé: ${result.length} catégorie(s)`);
+      return result;
     } catch (error) {
-      this.logger.error('Erreur lors du groupement par catégorie:', error);
+      this.logger.error(
+        'Erreur lors du groupement par catégorie:',
+        error instanceof Error ? error.stack : String(error),
+      );
+      this.logger.error('Détails complets de l\'erreur:', {
+        message: error instanceof Error ? error.message : String(error),
+        name: error instanceof Error ? error.name : 'Unknown',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw new BadRequestException(
-        `Erreur lors du groupement des produits par catégorie: ${error.message}`,
+        `Erreur lors du groupement des produits par catégorie: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
     }
   }
