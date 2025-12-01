@@ -110,6 +110,30 @@ export class SellerController {
     };
   }
 
+  // IMPORTANT: Cette route doit être AVANT 'products/:id' pour éviter les conflits de routing
+  @Get('products/by-category')
+  @ApiOperation({
+    summary: 'Produits groupés par catégorie',
+    description: 'Retourne les produits du vendeur groupés par catégorie',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Produits groupés récupérés avec succès',
+  })
+  async getProductsByCategory(@CurrentUser() user: User) {
+    try {
+      const grouped = await this.productService.getProductsByCategory(user.id);
+      return {
+        success: true,
+        message: 'Produits groupés par catégorie récupérés avec succès',
+        data: grouped,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
   @Get('products/:id')
   @ApiOperation({
     summary: 'Détails d\'un produit spécifique',
@@ -516,25 +540,6 @@ export class SellerController {
   // ============================================
   // Catégories et classification
   // ============================================
-
-  @Get('products/by-category')
-  @ApiOperation({
-    summary: 'Produits groupés par catégorie',
-    description: 'Retourne les produits du vendeur groupés par catégorie',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Produits groupés récupérés avec succès',
-  })
-  async getProductsByCategory(@CurrentUser() user: User) {
-    const grouped = await this.productService.getProductsByCategory(user.id);
-    return {
-      success: true,
-      message: 'Produits groupés par catégorie récupérés avec succès',
-      data: grouped,
-      timestamp: new Date().toISOString(),
-    };
-  }
 
   @Put('products/:id/category')
   @HttpCode(HttpStatus.OK)
