@@ -183,3 +183,4 @@ ALLOWED_ORIGINS=https://sendiaba.com,https://www.sendiaba.com
 - Le statut de succès pour les preflight requests est `204 No Content`
 
 
+

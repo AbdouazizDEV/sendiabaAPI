@@ -139,6 +139,7 @@ model Product {
   description      String
   shortDescription String?
   sku              String?          @unique @db.VarChar
+  brand            String?          @db.VarChar
   status           ProductStatus    @default(DRAFT)
   price            Decimal          @db.Decimal(10, 2)
   compareAtPrice   Decimal?         @db.Decimal(10, 2)
@@ -163,6 +164,7 @@ model Product {
   @@index([categoryId])
   @@index([slug])
   @@index([sku])
+  @@index([brand])
   @@index([status])
   @@map("products")
 }
