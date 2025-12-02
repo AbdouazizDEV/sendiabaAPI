@@ -198,3 +198,4 @@ curl -X 'GET' \
 
 Les images seront incluses dans la réponse avec leur ordre et leur statut (image principale).
 
+
