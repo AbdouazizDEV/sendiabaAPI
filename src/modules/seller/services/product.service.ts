@@ -136,6 +136,7 @@ export class ProductService {
         description: createProductDto.description,
         shortDescription: createProductDto.shortDescription,
         sku: createProductDto.sku,
+        brand: createProductDto.brand ?? null,
         slug,
         sellerId,
         price: createProductDto.price,

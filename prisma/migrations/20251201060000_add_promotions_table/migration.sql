@@ -28,3 +28,4 @@ CREATE INDEX "product_promotions_isActive_startDate_endDate_idx" ON "product_pro
 ALTER TABLE "product_promotions" ADD CONSTRAINT "product_promotions_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 
+

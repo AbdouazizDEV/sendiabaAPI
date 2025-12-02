@@ -27,72 +27,84 @@ async function main() {
       name: 'Électronique',
       slug: 'electronique',
       description: 'Téléphones, ordinateurs, accessoires électroniques',
+      image: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800',
       isActive: true,
     },
     {
       name: 'Mode & Vêtements',
       slug: 'mode-vetements',
       description: 'Vêtements, chaussures, accessoires de mode',
+      image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800',
       isActive: true,
     },
     {
       name: 'Maison & Décoration',
       slug: 'maison-decoration',
       description: 'Meubles, décoration intérieure, articles ménagers',
+      image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800',
       isActive: true,
     },
     {
       name: 'Alimentation & Boissons',
       slug: 'alimentation-boissons',
       description: 'Produits alimentaires, boissons, épicerie',
+      image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',
       isActive: true,
     },
     {
       name: 'Santé & Beauté',
       slug: 'sante-beaute',
       description: 'Produits de beauté, soins personnels, parfums',
+      image: 'https://images.unsplash.com/photo-1522338242992-e1a54906a8da?w=800',
       isActive: true,
     },
     {
       name: 'Sports & Loisirs',
       slug: 'sports-loisirs',
       description: 'Équipements sportifs, articles de loisirs',
+      image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800',
       isActive: true,
     },
     {
       name: 'Livres & Médias',
       slug: 'livres-medias',
       description: 'Livres, films, musique, jeux vidéo',
+      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
       isActive: true,
     },
     {
       name: 'Automobile',
       slug: 'automobile',
       description: 'Pièces auto, accessoires véhicules',
+      image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800',
       isActive: true,
     },
     {
       name: 'Jouets & Enfants',
       slug: 'jouets-enfants',
       description: 'Jouets, articles pour bébés et enfants',
+      image: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800',
       isActive: true,
     },
     {
       name: 'Informatique',
       slug: 'informatique',
       description: 'Ordinateurs, composants, logiciels',
+      image: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800',
       isActive: true,
     },
     {
       name: 'Téléphonie',
       slug: 'telephonie',
       description: 'Smartphones, tablettes, accessoires mobiles',
+      image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800',
       isActive: true,
     },
     {
       name: 'Électroménager',
       slug: 'electromenager',
       description: 'Appareils électroménagers, petit et gros électroménager',
+      image: 'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=800',
       isActive: true,
     },
   ];
@@ -104,6 +116,7 @@ async function main() {
       update: {
         name: categoryData.name,
         description: categoryData.description,
+        image: categoryData.image,
         isActive: categoryData.isActive,
       },
       create: categoryData,
@@ -166,6 +179,7 @@ async function main() {
         name: 'Vêtements Hommes',
         slug: 'vetements-hommes',
         description: 'Vêtements pour hommes',
+        image: 'https://images.unsplash.com/photo-1617137968427-85924c800a22?w=800',
         parentId: mode.id,
         isActive: true,
       },
@@ -173,6 +187,7 @@ async function main() {
         name: 'Vêtements Femmes',
         slug: 'vetements-femmes',
         description: 'Vêtements pour femmes',
+        image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800',
         parentId: mode.id,
         isActive: true,
       },
@@ -180,6 +195,7 @@ async function main() {
         name: 'Chaussures',
         slug: 'chaussures',
         description: 'Chaussures pour tous',
+        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800',
         parentId: mode.id,
         isActive: true,
       },
@@ -191,6 +207,105 @@ async function main() {
         update: {
           name: subCategoryData.name,
           description: subCategoryData.description,
+          image: subCategoryData.image,
+          parentId: subCategoryData.parentId,
+          isActive: subCategoryData.isActive,
+        },
+        create: subCategoryData,
+      });
+      console.log(`✅ Sous-catégorie créée/mise à jour: ${subCategory.name}`);
+    }
+  }
+
+  // Créer des sous-catégories pour Maison & Décoration
+  const maison = await prisma.category.findUnique({
+    where: { slug: 'maison-decoration' },
+  });
+
+  if (maison) {
+    const subCategories = [
+      {
+        name: 'Meuble de salon',
+        slug: 'meuble-de-salon',
+        description: 'Meubles pour le salon et la salle de séjour',
+        image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800',
+        parentId: maison.id,
+        isActive: true,
+      },
+      {
+        name: 'Meuble de bureau',
+        slug: 'meuble-de-bureau',
+        description: 'Meubles pour le bureau et le travail',
+        image: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?w=800',
+        parentId: maison.id,
+        isActive: true,
+      },
+      {
+        name: 'Mobilier d\'intérieur',
+        slug: 'mobilier-interieur',
+        description: 'Mobilier et ameublement pour l\'intérieur',
+        image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800',
+        parentId: maison.id,
+        isActive: true,
+      },
+      {
+        name: 'Luminaires',
+        slug: 'luminaires',
+        description: 'Éclairage et luminaires pour la maison',
+        image: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800',
+        parentId: maison.id,
+        isActive: true,
+      },
+    ];
+
+    for (const subCategoryData of subCategories) {
+      const subCategory = await prisma.category.upsert({
+        where: { slug: subCategoryData.slug },
+        update: {
+          name: subCategoryData.name,
+          description: subCategoryData.description,
+          image: subCategoryData.image,
+          parentId: subCategoryData.parentId,
+          isActive: subCategoryData.isActive,
+        },
+        create: subCategoryData,
+      });
+      console.log(`✅ Sous-catégorie créée/mise à jour: ${subCategory.name}`);
+    }
+  }
+
+  // Créer des sous-catégories pour Électroménager
+  const electromenager = await prisma.category.findUnique({
+    where: { slug: 'electromenager' },
+  });
+
+  if (electromenager) {
+    const subCategories = [
+      {
+        name: 'Gros électroménager',
+        slug: 'gros-electromenager',
+        description: 'Réfrigérateurs, lave-linges, fours, etc.',
+        image: 'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=800',
+        parentId: electromenager.id,
+        isActive: true,
+      },
+      {
+        name: 'Petit électroménager',
+        slug: 'petit-electromenager',
+        description: 'Mixeurs, bouilloires, grille-pain, etc.',
+        image: 'https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?w=800',
+        parentId: electromenager.id,
+        isActive: true,
+      },
+    ];
+
+    for (const subCategoryData of subCategories) {
+      const subCategory = await prisma.category.upsert({
+        where: { slug: subCategoryData.slug },
+        update: {
+          name: subCategoryData.name,
+          description: subCategoryData.description,
+          image: subCategoryData.image,
           parentId: subCategoryData.parentId,
           isActive: subCategoryData.isActive,
         },

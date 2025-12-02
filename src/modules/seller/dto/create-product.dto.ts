@@ -53,6 +53,14 @@ export class CreateProductDto {
   @IsString()
   sku?: string;
 
+  @ApiPropertyOptional({
+    description: 'Marque du produit',
+    example: 'Samsung',
+  })
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
   @ApiProperty({
     description: 'Prix de vente',
     example: 450000,
@@ -151,5 +159,6 @@ export class CreateProductDto {
   @IsEnum(ProductStatus)
   status?: ProductStatus;
 }
+
 
 

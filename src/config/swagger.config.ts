@@ -26,6 +26,7 @@ export const setupSwagger = (app: INestApplication): void => {
     .addTag('⚙️ Preferences', 'Gestion des préférences utilisateur')
     .addTag('🔒 Sécurité et Confidentialité', 'Gestion de la sécurité et confidentialité')
     .addTag('📦 Gestion des Produits (Vendeur)', 'Gestion des produits pour les vendeurs')
+    .addTag('📦 Catalogue & Recherche', 'Consultation publique du catalogue et recherche de produits')
     .addTag('📂 Catégories', 'Gestion des catégories de produits')
     .addTag('🎯 Promotions (Publiques)', 'Consultation publique des produits en promotion')
     .build();
