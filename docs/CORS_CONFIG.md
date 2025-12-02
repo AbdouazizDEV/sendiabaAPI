@@ -182,3 +182,4 @@ ALLOWED_ORIGINS=https://sendiaba.com,https://www.sendiaba.com
 - Les preflight requests (OPTIONS) sont gérées automatiquement
 - Le statut de succès pour les preflight requests est `204 No Content`
 
+

@@ -27,6 +27,7 @@ import {
 } from '@nestjs/swagger';
 import { ProductService } from './services/product.service';
 import { CategoryService } from './services/category.service';
+import { PromotionService } from './services/promotion.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -40,8 +41,10 @@ import { BulkUpdateStockDto } from './dto/bulk-update-stock.dto';
 import { InventoryAlertSettingsDto } from './dto/inventory-alert-settings.dto';
 import { UpdateImageOrderDto } from './dto/update-image-order.dto';
 import { UpdateProductCategoryDto } from './dto/update-product-category.dto';
+import { CreatePromotionDto } from './dto/create-promotion.dto';
+import { UpdatePromotionDto } from './dto/update-promotion.dto';
 
-@ApiTags('📦 Gestion des Produits')
+@ApiTags('📦 Gestion des Produits (Vendeur)')
 @Controller('seller')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.SELLER, UserRole.ENTERPRISE, UserRole.ADMIN, UserRole.SUPER_ADMIN)
@@ -50,6 +53,7 @@ export class SellerController {
   constructor(
     private readonly productService: ProductService,
     private readonly categoryService: CategoryService,
+    private readonly promotionService: PromotionService,
   ) {}
 
   // ============================================
@@ -110,7 +114,7 @@ export class SellerController {
     };
   }
 
-  // IMPORTANT: Cette route doit être AVANT 'products/:id' pour éviter les conflits de routing
+  // IMPORTANT: Ces routes doivent être AVANT 'products/:id' pour éviter les conflits de routing
   @Get('products/by-category')
   @ApiOperation({
     summary: 'Produits groupés par catégorie',
@@ -132,6 +136,85 @@ export class SellerController {
     } catch (error) {
       throw error;
     }
+  }
+
+  // ============================================
+  // Gestion des promotions (routes avant products/:id)
+  // ============================================
+
+  @Get('products/promotions')
+  @ApiOperation({
+    summary: 'Liste toutes les promotions',
+    description: 'Retourne toutes les promotions des produits du vendeur',
+  })
+  @ApiQuery({
+    name: 'includeExpired',
+    required: false,
+    type: Boolean,
+    description: 'Inclure les promotions expirées',
+    example: false,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Liste des promotions récupérée avec succès',
+  })
+  async getAllPromotions(
+    @CurrentUser() user: User,
+    @Query('includeExpired') includeExpired?: string,
+  ) {
+    const promotions = await this.promotionService.findAll(
+      user.id,
+      includeExpired === 'true',
+    );
+    return {
+      success: true,
+      message: 'Promotions récupérées avec succès',
+      data: promotions,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get('products/promotions/active')
+  @ApiOperation({
+    summary: 'Liste des promotions actives',
+    description: 'Retourne uniquement les promotions actuellement actives',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Promotions actives récupérées avec succès',
+  })
+  async getActivePromotions(@CurrentUser() user: User) {
+    const promotions = await this.promotionService.getActivePromotions(user.id);
+    return {
+      success: true,
+      message: 'Promotions actives récupérées avec succès',
+      data: promotions,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get('products/promotions/:id')
+  @ApiOperation({
+    summary: 'Détails d\'une promotion',
+    description: 'Retourne les détails d\'une promotion spécifique',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la promotion' })
+  @ApiResponse({
+    status: 200,
+    description: 'Détails de la promotion récupérés avec succès',
+  })
+  @ApiResponse({ status: 404, description: 'Promotion non trouvée' })
+  async getPromotion(
+    @CurrentUser() user: User,
+    @Param('id') promotionId: string,
+  ) {
+    const promotion = await this.promotionService.findOne(user.id, promotionId);
+    return {
+      success: true,
+      message: 'Détails de la promotion récupérés avec succès',
+      data: promotion,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('products/:id')
@@ -566,6 +649,119 @@ export class SellerController {
       success: true,
       message: 'Catégorie du produit mise à jour avec succès',
       data: product,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  // ============================================
+  // Gestion des promotions (suite)
+  // ============================================
+
+  @Post('products/promotions')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Créer une promotion pour un produit',
+    description: 'Met un produit en promotion avec un pourcentage ou un montant fixe de réduction',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Promotion créée avec succès',
+  })
+  @ApiResponse({ status: 400, description: 'Données invalides ou promotion en conflit' })
+  @ApiResponse({ status: 404, description: 'Produit non trouvé' })
+  async createPromotion(
+    @CurrentUser() user: User,
+    @Body() createPromotionDto: CreatePromotionDto,
+  ) {
+    const promotion = await this.promotionService.create(
+      user.id,
+      createPromotionDto,
+    );
+    return {
+      success: true,
+      message: 'Promotion créée avec succès',
+      data: promotion,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get('products/:productId/promotions')
+  @ApiOperation({
+    summary: 'Promotions d\'un produit',
+    description: 'Retourne toutes les promotions d\'un produit spécifique',
+  })
+  @ApiParam({ name: 'productId', description: 'ID du produit' })
+  @ApiResponse({
+    status: 200,
+    description: 'Promotions du produit récupérées avec succès',
+  })
+  @ApiResponse({ status: 404, description: 'Produit non trouvé' })
+  async getProductPromotions(
+    @CurrentUser() user: User,
+    @Param('productId') productId: string,
+  ) {
+    const promotions = await this.promotionService.findByProduct(
+      user.id,
+      productId,
+    );
+    return {
+      success: true,
+      message: 'Promotions du produit récupérées avec succès',
+      data: promotions,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Put('products/promotions/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Modifier une promotion',
+    description: 'Met à jour les informations d\'une promotion (pourcentage, dates, etc.)',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la promotion' })
+  @ApiResponse({
+    status: 200,
+    description: 'Promotion modifiée avec succès',
+  })
+  @ApiResponse({ status: 404, description: 'Promotion non trouvée' })
+  async updatePromotion(
+    @CurrentUser() user: User,
+    @Param('id') promotionId: string,
+    @Body() updatePromotionDto: UpdatePromotionDto,
+  ) {
+    const promotion = await this.promotionService.update(
+      user.id,
+      promotionId,
+      updatePromotionDto,
+    );
+    return {
+      success: true,
+      message: 'Promotion modifiée avec succès',
+      data: promotion,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Delete('products/promotions/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retirer une promotion',
+    description: 'Supprime définitivement une promotion',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la promotion' })
+  @ApiResponse({
+    status: 200,
+    description: 'Promotion supprimée avec succès',
+  })
+  @ApiResponse({ status: 404, description: 'Promotion non trouvée' })
+  async removePromotion(
+    @CurrentUser() user: User,
+    @Param('id') promotionId: string,
+  ) {
+    const result = await this.promotionService.remove(user.id, promotionId);
+    return {
+      success: true,
+      message: result.message,
       timestamp: new Date().toISOString(),
     };
   }

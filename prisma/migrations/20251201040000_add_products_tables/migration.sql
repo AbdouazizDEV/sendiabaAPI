@@ -149,3 +149,4 @@ ALTER TABLE "product_stocks" ADD CONSTRAINT "product_stocks_productId_fkey" FORE
 -- AddForeignKey
 ALTER TABLE "inventory_alerts" ADD CONSTRAINT "inventory_alerts_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
+
