@@ -9,6 +9,8 @@ import { SecurityModule } from './modules/security/security.module';
 import { SellerModule } from './modules/seller/seller.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { CartModule } from './modules/cart/cart.module';
+import { OrderModule } from './modules/orders/order.module';
+import { PaymentModule } from './modules/payments/payment.module';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 
@@ -36,6 +38,8 @@ import jwtConfig from './config/jwt.config';
     SellerModule,
     CatalogModule,
     CartModule,
+    OrderModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
