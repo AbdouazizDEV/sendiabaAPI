@@ -1,7 +1,9 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
+  Param,
   UseGuards,
   Request,
   HttpCode,
@@ -13,6 +15,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiParam,
 } from '@nestjs/swagger';
 import { PaymentService } from './services/payment.service';
 import { MobileMoneyPaymentDto } from './dto/mobile-money-payment.dto';
@@ -290,6 +293,93 @@ export class PaymentController {
       req.user.id,
       directContactDto,
     );
+  }
+
+  @Get('verify/:token')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CUSTOMER, UserRole.ENTERPRISE, UserRole.SELLER, UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Vérifier le statut d\'un paiement PayDunya',
+    description: `
+    **Vérifie le statut d'un paiement via le token PayDunya**
+    
+    Cet endpoint est utilisé par la page de succès après redirection depuis PayDunya.
+    Il permet de récupérer les détails du paiement et de la commande associée.
+    
+    **Utilisation :**
+    - Après redirection depuis PayDunya vers \`/orders/success?token=XXX\`
+    - La page frontend appelle cet endpoint avec le token de l'URL
+    - L'endpoint retourne les détails du paiement et de la commande
+    - Si le paiement est complété sur PayDunya mais pas encore mis à jour en base, il sera synchronisé
+    
+    **Note :** L'utilisateur doit être authentifié et être le propriétaire de la commande.
+    `
+  })
+  @ApiParam({
+    name: 'token',
+    description: 'Token PayDunya retourné dans l\'URL de redirection',
+    example: 'test_JZAo8SakxF'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statut du paiement récupéré avec succès',
+    schema: {
+      example: {
+        success: true,
+        data: {
+          payment: {
+            id: 'payment-uuid',
+            status: 'COMPLETED',
+            method: 'MOBILE_MONEY',
+            amount: 450000,
+            currency: 'XOF',
+            paydunyaReceiptUrl: 'https://paydunya.com/receipt/...',
+            transactionId: 'TXN123456',
+            paidAt: '2025-12-03T05:56:44.929Z'
+          },
+          order: {
+            id: 'order-uuid',
+            orderNumber: 'CMD-1764741404562-4560',
+            status: 'CONFIRMED',
+            total: 450000,
+            items: [
+              {
+                product: {
+                  name: 'Téléphone Samsung Galaxy S222',
+                  image: 'https://...'
+                },
+                quantity: 1,
+                total: 450000
+              }
+            ]
+          }
+        }
+      }
+    }
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Paiement non trouvé pour ce token'
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Non authentifié'
+  })
+  async verifyPayment(
+    @Request() req,
+    @Param('token') token: string,
+  ) {
+    const result = await this.paymentService.verifyPaymentByToken(
+      token,
+      req.user?.id,
+    );
+    return {
+      success: true,
+      message: 'Statut du paiement récupéré avec succès',
+      data: result,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Post('paydunya/webhook')
