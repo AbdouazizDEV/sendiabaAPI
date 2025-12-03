@@ -349,5 +349,104 @@ export class PaymentService {
       );
     }
   }
+
+  /**
+   * Vérifie le statut d'un paiement PayDunya via son token
+   * Utilisé par la page de succès après redirection depuis PayDunya
+   */
+  async verifyPaymentByToken(token: string, userId?: string) {
+    if (!token) {
+      throw new BadRequestException('Token manquant');
+    }
+
+    // Trouver le paiement correspondant
+    const payment = await this.prisma.payment.findUnique({
+      where: { paydunyaToken: token },
+      include: {
+        order: {
+          include: {
+            items: {
+              include: {
+                product: {
+                  select: {
+                    name: true,
+                    images: {
+                      where: { isPrimary: true },
+                      take: 1,
+                      select: { url: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Paiement non trouvé pour ce token');
+    }
+
+    // Vérifier que l'utilisateur est le propriétaire de la commande (si userId fourni)
+    if (userId && payment.order.userId !== userId) {
+      throw new NotFoundException('Paiement non trouvé');
+    }
+
+    // Vérifier le statut actuel avec PayDunya (optionnel, pour avoir le statut le plus récent)
+    let payDunyaStatus = null;
+    try {
+      const invoiceData = await this.payDunyaService.verifyInvoice(token);
+      payDunyaStatus = invoiceData.invoice?.status;
+      
+      // Si le statut PayDunya est différent, mettre à jour
+      if (payDunyaStatus === 'completed' || payDunyaStatus === 'paid') {
+        if (payment.status !== 'COMPLETED') {
+          await this.prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: 'COMPLETED',
+              paidAt: new Date(),
+            },
+          });
+          
+          await this.prisma.order.update({
+            where: { id: payment.orderId },
+            data: { status: 'CONFIRMED' },
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`Impossible de vérifier le statut PayDunya pour le token ${token}:`, error);
+      // Continuer avec le statut en base de données
+    }
+
+    return {
+      payment: {
+        id: payment.id,
+        status: payment.status,
+        method: payment.method,
+        amount: this.toNumber(payment.amount),
+        currency: payment.currency,
+        paydunyaReceiptUrl: payment.paydunyaReceiptUrl,
+        transactionId: payment.transactionId,
+        paidAt: payment.paidAt,
+      },
+      order: {
+        id: payment.order.id,
+        orderNumber: payment.order.orderNumber,
+        status: payment.order.status,
+        total: this.toNumber(payment.order.total),
+        items: payment.order.items.map((item) => ({
+          product: {
+            name: item.product.name,
+            image: item.product.images[0]?.url || null,
+          },
+          quantity: item.quantity,
+          total: this.toNumber(item.total),
+        })),
+      },
+    };
+  }
 }
 
