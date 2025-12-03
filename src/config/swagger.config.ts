@@ -30,6 +30,8 @@ export const setupSwagger = (app: INestApplication): void => {
     .addTag('📂 Catégories', 'Gestion des catégories de produits')
     .addTag('🎯 Promotions (Publiques)', 'Consultation publique des produits en promotion')
     .addTag('🛒 Gestion du Panier', 'Gestion du panier d\'achat pour les clients')
+    .addTag('🛍️ Commandes', 'Gestion des commandes')
+    .addTag('💳 Paiements', 'Gestion des paiements')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
