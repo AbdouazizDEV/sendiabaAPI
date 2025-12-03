@@ -32,6 +32,7 @@ model User {
   preferences              UserPreferences?
   securitySettings         UserSecuritySettings?
   cart                     Cart?
+  orders                   Order[]
 
   @@index([email], map: "IDX_97672ac88f789774dd47f7c8be")
   @@map("users")
@@ -159,6 +160,7 @@ model Product {
   stock            ProductStock?
   promotions       ProductPromotion[]
   cartItems        CartItem[]
+  orderItems       OrderItem[]
   category         Category         @relation(fields: [categoryId], references: [id], onUpdate: NoAction)
   seller           User             @relation(fields: [sellerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -282,4 +284,112 @@ model CartItem {
   @@index([cartId])
   @@index([productId])
   @@map("cart_items")
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  MOBILE_MONEY
+  CASH_ON_DELIVERY
+  DIRECT_CONTACT
+  CARD
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+model Order {
+  id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId          String        @db.Uuid
+  orderNumber     String        @unique @db.VarChar
+  status          OrderStatus   @default(PENDING)
+  subtotal        Decimal       @db.Decimal(10, 2)
+  tax             Decimal       @default(0) @db.Decimal(10, 2)
+  shipping        Decimal       @default(0) @db.Decimal(10, 2)
+  discount        Decimal       @default(0) @db.Decimal(10, 2)
+  total           Decimal       @db.Decimal(10, 2)
+  shippingAddress String
+  shippingCity    String        @db.VarChar
+  shippingRegion  String        @db.VarChar
+  shippingCountry String        @default("Sénégal") @db.VarChar
+  shippingPostalCode String?    @db.VarChar
+  recipientName   String        @db.VarChar
+  recipientPhone  String        @db.VarChar
+  notes           String?
+  cancelledAt     DateTime?     @db.Timestamp(6)
+  cancelledReason String?
+  deliveredAt     DateTime?     @db.Timestamp(6)
+  createdAt       DateTime      @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime      @default(now()) @updatedAt @db.Timestamp(6)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  items           OrderItem[]
+  payments        Payment[]
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderId         String   @db.Uuid
+  productId       String   @db.Uuid
+  productName     String   @db.VarChar
+  productSku      String?  @db.VarChar
+  quantity        Int
+  unitPrice       Decimal  @db.Decimal(10, 2)
+  discount        Decimal  @default(0) @db.Decimal(10, 2)
+  total           Decimal  @db.Decimal(10, 2)
+  createdAt       DateTime @default(now()) @db.Timestamp(6)
+  updatedAt       DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product         Product  @relation(fields: [productId], references: [id], onUpdate: NoAction)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Payment {
+  id                String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderId           String        @db.Uuid
+  method            PaymentMethod
+  status            PaymentStatus @default(PENDING)
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("XOF") @db.VarChar
+  paydunyaToken     String?       @unique @db.VarChar
+  paydunyaInvoiceId String?       @unique @db.VarChar
+  paydunyaReceiptUrl String?      @db.VarChar
+  mobileMoneyNumber  String?      @db.VarChar
+  mobileMoneyProvider String?     @db.VarChar
+  transactionId     String?       @unique @db.VarChar
+  failureReason     String?
+  metadata          String?       @db.Text
+  paidAt            DateTime?     @db.Timestamp(6)
+  createdAt         DateTime      @default(now()) @db.Timestamp(6)
+  updatedAt         DateTime      @default(now()) @updatedAt @db.Timestamp(6)
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([orderId])
+  @@index([status])
+  @@index([paydunyaToken])
+  @@index([paydunyaInvoiceId])
+  @@index([transactionId])
+  @@map("payments")
 }
