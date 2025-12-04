@@ -25,6 +25,7 @@ model User {
   profilePicture           String?               @db.VarChar
   emailVerificationToken   String?               @db.VarChar
   emailVerificationExpires DateTime?             @db.Timestamp(6)
+  companyId                String?               @db.Uuid
   addresses                Address[]
   categories               Category[]            @relation("CategoryCreator")
   loginActivities          LoginActivity[]
@@ -33,8 +34,11 @@ model User {
   securitySettings         UserSecuritySettings?
   cart                     Cart?
   orders                   Order[]
+  reviews                  ProductReview[]
+  company                  Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([email], map: "IDX_97672ac88f789774dd47f7c8be")
+  @@index([companyId])
   @@map("users")
 }
 
@@ -133,36 +137,39 @@ model Category {
 }
 
 model Product {
-  id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  sellerId         String           @db.Uuid
-  categoryId       String           @db.Uuid
-  name             String           @db.VarChar
-  slug             String           @unique @db.VarChar
+  id               String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sellerId         String             @db.Uuid
+  categoryId       String             @db.Uuid
+  name             String             @db.VarChar
+  slug             String             @unique @db.VarChar
   description      String
   shortDescription String?
-  sku              String?          @unique @db.VarChar
-  brand            String?          @db.VarChar
-  status           ProductStatus    @default(DRAFT)
-  price            Decimal          @db.Decimal(10, 2)
-  compareAtPrice   Decimal?         @db.Decimal(10, 2)
-  costPrice        Decimal?         @db.Decimal(10, 2)
-  weight           Decimal?         @db.Decimal(8, 2)
-  dimensions       String?          @db.VarChar
-  tags             String[]         @default([])
-  isDigital        Boolean          @default(false)
-  requiresShipping Boolean          @default(true)
-  trackInventory   Boolean          @default(true)
-  allowBackorder   Boolean          @default(false)
-  createdAt        DateTime         @default(now()) @db.Timestamp(6)
-  updatedAt        DateTime         @default(now()) @updatedAt @db.Timestamp(6)
+  sku              String?            @unique @db.VarChar
+  brand            String?            @db.VarChar
+  status           ProductStatus      @default(DRAFT)
+  price            Decimal            @db.Decimal(10, 2)
+  compareAtPrice   Decimal?           @db.Decimal(10, 2)
+  costPrice        Decimal?           @db.Decimal(10, 2)
+  weight           Decimal?           @db.Decimal(8, 2)
+  length           Decimal?           @db.Decimal(8, 2)
+  width            Decimal?           @db.Decimal(8, 2)
+  height           Decimal?           @db.Decimal(8, 2)
+  tags             String[]           @default([])
+  isDigital        Boolean            @default(false)
+  requiresShipping Boolean            @default(true)
+  trackInventory   Boolean            @default(true)
+  allowBackorder   Boolean            @default(false)
+  createdAt        DateTime           @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime           @default(now()) @updatedAt @db.Timestamp(6)
   inventoryAlerts  InventoryAlert[]
   images           ProductImage[]
   stock            ProductStock?
   promotions       ProductPromotion[]
   cartItems        CartItem[]
   orderItems       OrderItem[]
-  category         Category         @relation(fields: [categoryId], references: [id], onUpdate: NoAction)
-  seller           User             @relation(fields: [sellerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reviews          ProductReview[]
+  category         Category           @relation(fields: [categoryId], references: [id], onUpdate: NoAction)
+  seller           User               @relation(fields: [sellerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([sellerId])
   @@index([categoryId])
@@ -313,31 +320,31 @@ enum PaymentStatus {
 }
 
 model Order {
-  id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId          String        @db.Uuid
-  orderNumber     String        @unique @db.VarChar
-  status          OrderStatus   @default(PENDING)
-  subtotal        Decimal       @db.Decimal(10, 2)
-  tax             Decimal       @default(0) @db.Decimal(10, 2)
-  shipping        Decimal       @default(0) @db.Decimal(10, 2)
-  discount        Decimal       @default(0) @db.Decimal(10, 2)
-  total           Decimal       @db.Decimal(10, 2)
-  shippingAddress String
-  shippingCity    String        @db.VarChar
-  shippingRegion  String        @db.VarChar
-  shippingCountry String        @default("Sénégal") @db.VarChar
-  shippingPostalCode String?    @db.VarChar
-  recipientName   String        @db.VarChar
-  recipientPhone  String        @db.VarChar
-  notes           String?
-  cancelledAt     DateTime?     @db.Timestamp(6)
-  cancelledReason String?
-  deliveredAt     DateTime?     @db.Timestamp(6)
-  createdAt       DateTime      @default(now()) @db.Timestamp(6)
-  updatedAt       DateTime      @default(now()) @updatedAt @db.Timestamp(6)
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  items           OrderItem[]
-  payments        Payment[]
+  id                 String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId             String      @db.Uuid
+  orderNumber        String      @unique @db.VarChar
+  status             OrderStatus @default(PENDING)
+  subtotal           Decimal     @db.Decimal(10, 2)
+  tax                Decimal     @default(0) @db.Decimal(10, 2)
+  shipping           Decimal     @default(0) @db.Decimal(10, 2)
+  discount           Decimal     @default(0) @db.Decimal(10, 2)
+  total              Decimal     @db.Decimal(10, 2)
+  shippingAddress    String
+  shippingCity       String      @db.VarChar
+  shippingRegion     String      @db.VarChar
+  shippingCountry    String      @default("Sénégal") @db.VarChar
+  shippingPostalCode String?     @db.VarChar
+  recipientName      String      @db.VarChar
+  recipientPhone     String      @db.VarChar
+  notes              String?
+  cancelledAt        DateTime?   @db.Timestamp(6)
+  cancelledReason    String?
+  deliveredAt        DateTime?   @db.Timestamp(6)
+  createdAt          DateTime    @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime    @default(now()) @updatedAt @db.Timestamp(6)
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  items              OrderItem[]
+  payments           Payment[]
 
   @@index([userId])
   @@index([orderNumber])
@@ -347,19 +354,19 @@ model Order {
 }
 
 model OrderItem {
-  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  orderId         String   @db.Uuid
-  productId       String   @db.Uuid
-  productName     String   @db.VarChar
-  productSku      String?  @db.VarChar
-  quantity        Int
-  unitPrice       Decimal  @db.Decimal(10, 2)
-  discount        Decimal  @default(0) @db.Decimal(10, 2)
-  total           Decimal  @db.Decimal(10, 2)
-  createdAt       DateTime @default(now()) @db.Timestamp(6)
-  updatedAt       DateTime @default(now()) @updatedAt @db.Timestamp(6)
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  product         Product  @relation(fields: [productId], references: [id], onUpdate: NoAction)
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderId     String   @db.Uuid
+  productId   String   @db.Uuid
+  productName String   @db.VarChar
+  productSku  String?  @db.VarChar
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  discount    Decimal  @default(0) @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product     Product  @relation(fields: [productId], references: [id], onUpdate: NoAction)
 
   @@index([orderId])
   @@index([productId])
@@ -367,24 +374,24 @@ model OrderItem {
 }
 
 model Payment {
-  id                String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  orderId           String        @db.Uuid
-  method            PaymentMethod
-  status            PaymentStatus @default(PENDING)
-  amount            Decimal       @db.Decimal(10, 2)
-  currency          String        @default("XOF") @db.VarChar
-  paydunyaToken     String?       @unique @db.VarChar
-  paydunyaInvoiceId String?       @unique @db.VarChar
-  paydunyaReceiptUrl String?      @db.VarChar
-  mobileMoneyNumber  String?      @db.VarChar
-  mobileMoneyProvider String?     @db.VarChar
-  transactionId     String?       @unique @db.VarChar
-  failureReason     String?
-  metadata          String?       @db.Text
-  paidAt            DateTime?     @db.Timestamp(6)
-  createdAt         DateTime      @default(now()) @db.Timestamp(6)
-  updatedAt         DateTime      @default(now()) @updatedAt @db.Timestamp(6)
-  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                  String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderId             String        @db.Uuid
+  method              PaymentMethod
+  status              PaymentStatus @default(PENDING)
+  amount              Decimal       @db.Decimal(10, 2)
+  currency            String        @default("XOF") @db.VarChar
+  paydunyaToken       String?       @unique @db.VarChar
+  paydunyaInvoiceId   String?       @unique @db.VarChar
+  paydunyaReceiptUrl  String?       @db.VarChar
+  mobileMoneyNumber   String?       @db.VarChar
+  mobileMoneyProvider String?       @db.VarChar
+  transactionId       String?       @unique @db.VarChar
+  failureReason       String?
+  metadata            String?       @db.Text
+  paidAt              DateTime?     @db.Timestamp(6)
+  createdAt           DateTime      @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime      @default(now()) @updatedAt @db.Timestamp(6)
+  order               Order         @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([orderId])
   @@index([status])
@@ -392,4 +399,53 @@ model Payment {
   @@index([paydunyaInvoiceId])
   @@index([transactionId])
   @@map("payments")
+}
+
+model Company {
+  id                 String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name               String   @db.VarChar
+  legalName          String?  @db.VarChar
+  registrationNumber String?  @db.VarChar
+  taxId              String?  @db.VarChar
+  email              String?  @db.VarChar
+  phone              String?  @db.VarChar
+  address            String?  @db.Text
+  city               String?  @db.VarChar
+  region             String?  @db.VarChar
+  country            String   @default("Sénégal") @db.VarChar
+  postalCode         String?  @db.VarChar
+  website            String?  @db.VarChar
+  logo               String?  @db.VarChar
+  description        String?  @db.Text
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  users              User[]
+
+  @@index([name])
+  @@index([registrationNumber])
+  @@map("companies")
+}
+
+model ProductReview {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  productId    String   @db.Uuid
+  userId       String   @db.Uuid
+  rating       Int // Note de 1 à 5
+  title        String?  @db.VarChar
+  comment      String?  @db.Text
+  isVerified   Boolean  @default(false) // Avis vérifié (client a acheté le produit)
+  isPublished  Boolean  @default(true)
+  helpfulCount Int      @default(0)
+  createdAt    DateTime @default(now()) @db.Timestamp(6)
+  updatedAt    DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([productId, userId]) // Un utilisateur ne peut laisser qu'un seul avis par produit
+  @@index([productId])
+  @@index([userId])
+  @@index([rating])
+  @@index([isPublished])
+  @@map("product_reviews")
 }

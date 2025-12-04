@@ -11,6 +11,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { CartModule } from './modules/cart/cart.module';
 import { OrderModule } from './modules/orders/order.module';
 import { PaymentModule } from './modules/payments/payment.module';
+import { ReviewModule } from './modules/reviews/review.module';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 
@@ -40,6 +41,7 @@ import jwtConfig from './config/jwt.config';
     CartModule,
     OrderModule,
     PaymentModule,
+    ReviewModule,
   ],
   controllers: [AppController],
   providers: [AppService],

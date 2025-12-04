@@ -63,8 +63,58 @@ export class CatalogService {
   }
 
   // Formater un produit pour la réponse publique
-  private formatProduct(product: any) {
+  private formatProduct(product: any, stats?: any) {
     const pricing = this.calculatePriceWithPromotion(product);
+
+    // Formater les avis
+    const reviews = (product.reviews || []).map((review: any) => ({
+      id: review.id,
+      rating: review.rating,
+      title: review.title,
+      comment: review.comment,
+      isVerified: review.isVerified,
+      helpfulCount: review.helpfulCount,
+      createdAt: review.createdAt,
+      user: review.user
+        ? {
+            id: review.user.id,
+            firstName: review.user.firstName,
+            lastName: review.user.lastName,
+            profilePicture: review.user.profilePicture,
+          }
+        : null,
+    }));
+
+    // Formater le seller avec les informations de l'entreprise si disponible
+    let sellerInfo: any = null;
+    if (product.seller) {
+      const seller = product.seller as any;
+      sellerInfo = {
+        id: seller.id,
+        firstName: seller.firstName,
+        lastName: seller.lastName,
+        email: seller.email,
+        phone: seller.phone,
+        role: seller.role,
+        hasCompany: !!seller.company,
+        company: seller.company
+          ? {
+              id: seller.company.id,
+              name: seller.company.name,
+              legalName: seller.company.legalName,
+              email: seller.company.email,
+              phone: seller.company.phone,
+              address: seller.company.address,
+              city: seller.company.city,
+              region: seller.company.region,
+              country: seller.company.country,
+              website: seller.company.website,
+              logo: seller.company.logo,
+              description: seller.company.description,
+            }
+          : null,
+      };
+    }
 
     return {
       id: product.id,
@@ -82,7 +132,9 @@ export class CatalogService {
       hasPromotion: pricing.hasPromotion,
       compareAtPrice: this.toNumber(product.compareAtPrice),
       weight: this.toNumber(product.weight),
-      dimensions: product.dimensions,
+      length: this.toNumber(product.length),
+      width: this.toNumber(product.width),
+      height: this.toNumber(product.height),
       tags: product.tags || [],
       isDigital: product.isDigital,
       requiresShipping: product.requiresShipping,
@@ -111,13 +163,33 @@ export class CatalogService {
             location: product.stock.location,
           }
         : null,
-      seller: product.seller
-        ? {
-            id: product.seller.id,
-            firstName: product.seller.firstName,
-            lastName: product.seller.lastName,
-          }
-        : null,
+      seller: sellerInfo,
+      reviews: {
+        items: reviews,
+        stats: stats || {
+          averageRating: 0,
+          totalReviews: 0,
+          ratingDistribution: {
+            5: 0,
+            4: 0,
+            3: 0,
+            2: 0,
+            1: 0,
+          },
+        },
+      },
+      statistics: stats || {
+        totalSales: 0,
+        totalReviews: 0,
+        averageRating: 0,
+        ratingDistribution: {
+          5: 0,
+          4: 0,
+          3: 0,
+          2: 0,
+          1: 0,
+        },
+      },
     };
   }
 
@@ -331,40 +403,64 @@ export class CatalogService {
   async findOne(id: string) {
     const now = new Date();
 
-    const product = await this.prisma.product.findUnique({
-      where: { id },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            description: true,
+    // Récupérer les avis séparément pour éviter les problèmes de relation
+    const [product, reviews] = await Promise.all([
+      this.prisma.product.findUnique({
+        where: { id },
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              description: true,
+            },
+          },
+          images: {
+            orderBy: { order: 'asc' },
+          },
+          stock: true,
+          seller: {
+            include: {
+              company: true,
+            },
+          },
+          promotions: {
+            where: {
+              isActive: true,
+              startDate: { lte: now },
+              endDate: { gte: now },
+            },
+            orderBy: { discountValue: 'desc' },
           },
         },
-        images: {
-          orderBy: { order: 'asc' },
+      }),
+      this.prisma.productReview.findMany({
+        where: {
+          productId: id,
+          isPublished: true,
         },
-        stock: true,
-        seller: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profilePicture: true,
+            },
           },
         },
-        promotions: {
-          where: {
-            isActive: true,
-            startDate: { lte: now },
-            endDate: { gte: now },
-          },
-          orderBy: { discountValue: 'desc' },
+        orderBy: {
+          createdAt: 'desc',
         },
-      },
-    });
+        take: 10,
+      }),
+    ]);
+
+    // Ajouter les avis au produit
+    if (product) {
+      (product as any).reviews = reviews;
+    }
 
     if (!product) {
       throw new NotFoundException('Produit non trouvé');
@@ -375,7 +471,73 @@ export class CatalogService {
       throw new NotFoundException('Produit non trouvé');
     }
 
-    return this.formatProduct(product);
+    // Calculer les statistiques de notes
+    const ratingStats = await this.getProductRatingStats(id);
+
+    // Calculer les statistiques du produit
+    const [totalSales, totalReviews] = await Promise.all([
+      this.prisma.orderItem.count({
+        where: { productId: id },
+      }),
+      this.prisma.productReview.count({
+        where: {
+          productId: id,
+          isPublished: true,
+        },
+      }),
+    ]);
+
+    const productStats = {
+      totalSales,
+      ...ratingStats,
+      totalReviews, // Surcharger totalReviews de ratingStats avec le count exact
+    };
+
+    return this.formatProduct(product, productStats);
+  }
+
+  // Calculer les statistiques de notes pour un produit
+  private async getProductRatingStats(productId: string) {
+    const reviews = await this.prisma.productReview.findMany({
+      where: {
+        productId,
+        isPublished: true,
+      },
+      select: {
+        rating: true,
+      },
+    });
+
+    if (reviews.length === 0) {
+      return {
+        averageRating: 0,
+        totalReviews: 0,
+        ratingDistribution: {
+          5: 0,
+          4: 0,
+          3: 0,
+          2: 0,
+          1: 0,
+        },
+      };
+    }
+
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+    const averageRating = totalRating / reviews.length;
+
+    const ratingDistribution = {
+      5: reviews.filter((r) => r.rating === 5).length,
+      4: reviews.filter((r) => r.rating === 4).length,
+      3: reviews.filter((r) => r.rating === 3).length,
+      2: reviews.filter((r) => r.rating === 2).length,
+      1: reviews.filter((r) => r.rating === 1).length,
+    };
+
+    return {
+      averageRating: Math.round(averageRating * 10) / 10,
+      totalReviews: reviews.length,
+      ratingDistribution,
+    };
   }
 
   // Liste des catégories
