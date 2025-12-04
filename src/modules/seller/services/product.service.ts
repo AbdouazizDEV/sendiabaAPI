@@ -143,7 +143,9 @@ export class ProductService {
         compareAtPrice: createProductDto.compareAtPrice ?? null,
         costPrice: createProductDto.costPrice ?? null,
         weight: createProductDto.weight ?? null,
-        dimensions: createProductDto.dimensions ?? null,
+        length: createProductDto.length ?? null,
+        width: createProductDto.width ?? null,
+        height: createProductDto.height ?? null,
         tags: createProductDto.tags ?? [],
         isDigital: createProductDto.isDigital ?? false,
         requiresShipping: createProductDto.requiresShipping ?? true,
@@ -807,7 +809,9 @@ export class ProductService {
             product.weight !== null && product.weight !== undefined
               ? parseFloat(String(product.weight))
               : null,
-          dimensions: product.dimensions,
+          length: product.length ? parseFloat(String(product.length)) : null,
+          width: product.width ? parseFloat(String(product.width)) : null,
+          height: product.height ? parseFloat(String(product.height)) : null,
           tags: product.tags || [],
           isDigital: product.isDigital,
           requiresShipping: product.requiresShipping,

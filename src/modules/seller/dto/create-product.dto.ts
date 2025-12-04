@@ -101,12 +101,34 @@ export class CreateProductDto {
   weight?: number;
 
   @ApiPropertyOptional({
-    description: 'Dimensions (JSON: {length, width, height})',
-    example: '{"length": 15.1, "width": 7.1, "height": 0.8}',
+    description: 'Longueur en centimètres',
+    example: 15.1,
+    minimum: 0,
   })
   @IsOptional()
-  @IsString()
-  dimensions?: string;
+  @IsNumber()
+  @Min(0)
+  length?: number;
+
+  @ApiPropertyOptional({
+    description: 'Largeur en centimètres',
+    example: 7.1,
+    minimum: 0,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  width?: number;
+
+  @ApiPropertyOptional({
+    description: 'Hauteur en centimètres',
+    example: 0.8,
+    minimum: 0,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  height?: number;
 
   @ApiPropertyOptional({
     description: 'Tags pour la recherche',
