@@ -8,6 +8,7 @@ import { PrismaService } from '../../seller/services/prisma.service';
 import { ProfileService } from '../../profile/profile.service';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { Prisma } from '@prisma/client';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
 export class OrderService {
@@ -16,6 +17,7 @@ export class OrderService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly profileService: ProfileService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   // Convertir Decimal en Number
@@ -442,6 +444,460 @@ export class OrderService {
           }
         : null,
       createdAt: order.createdAt,
+    };
+  }
+
+  /**
+   * Récupère l'historique des commandes d'un utilisateur
+   */
+  async getOrderHistory(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    status?: string,
+  ) {
+    const skip = (page - 1) * limit;
+    const where: any = { userId };
+
+    if (status) {
+      where.status = status;
+    }
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        include: {
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  images: {
+                    where: { isPrimary: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+            take: 3, // Limiter à 3 items pour la liste
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      orders: orders.map((order) => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        total: this.toNumber(order.total),
+        itemCount: order.items.length,
+        items: order.items.map((item) => ({
+          product: {
+            id: item.product.id,
+            name: item.product.name,
+            slug: item.product.slug,
+            image: item.product.images[0]?.url || null,
+          },
+          quantity: item.quantity,
+        })),
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Récupère les détails d'une commande spécifique
+   */
+  async getOrderDetails(orderId: string, userId: string) {
+    return this.getOrderSummary(orderId, userId);
+  }
+
+  /**
+   * Récupère le statut actuel d'une commande
+   */
+  async getOrderStatus(orderId: string, userId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId: userId,
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        confirmedAt: true,
+        processedAt: true,
+        shippedAt: true,
+        deliveredAt: true,
+        cancelledAt: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      timestamps: {
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        confirmedAt: order.confirmedAt,
+        processedAt: order.processedAt,
+        shippedAt: order.shippedAt,
+        deliveredAt: order.deliveredAt,
+        cancelledAt: order.cancelledAt,
+      },
+    };
+  }
+
+  /**
+   * Récupère les informations de suivi de livraison
+   */
+  async getOrderTracking(orderId: string, userId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId: userId,
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        trackingNumber: true,
+        trackingUrl: true,
+        carrier: true,
+        shippingAddress: true,
+        shippingCity: true,
+        shippingRegion: true,
+        shippingCountry: true,
+        recipientName: true,
+        recipientPhone: true,
+        shippedAt: true,
+        deliveredAt: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      tracking: {
+        trackingNumber: order.trackingNumber,
+        trackingUrl: order.trackingUrl,
+        carrier: order.carrier,
+      },
+      shipping: {
+        address: order.shippingAddress,
+        city: order.shippingCity,
+        region: order.shippingRegion,
+        country: order.shippingCountry,
+        recipientName: order.recipientName,
+        recipientPhone: order.recipientPhone,
+      },
+      timestamps: {
+        shippedAt: order.shippedAt,
+        deliveredAt: order.deliveredAt,
+      },
+    };
+  }
+
+  /**
+   * Annule une commande (si autorisé)
+   */
+  async cancelOrder(orderId: string, userId: string, reason?: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId: userId,
+      },
+      include: {
+        payments: {
+          where: {
+            status: { in: ['COMPLETED', 'PROCESSING'] },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    // Vérifier si la commande peut être annulée
+    if (
+      order.status === 'CANCELLED' ||
+      order.status === 'DELIVERED' ||
+      order.status === 'REFUNDED'
+    ) {
+      throw new BadRequestException(
+        `Cette commande ne peut pas être annulée. Statut actuel: ${order.status}`,
+      );
+    }
+
+    // Si un paiement est complété, la commande ne peut être annulée que par le vendeur
+    if (order.payments.length > 0) {
+      const hasCompletedPayment = order.payments.some(
+        (p) => p.status === 'COMPLETED',
+      );
+      if (hasCompletedPayment) {
+        throw new BadRequestException(
+          'Cette commande ne peut pas être annulée directement car un paiement a été effectué. Veuillez contacter le vendeur pour un remboursement.',
+        );
+      }
+    }
+
+    // Annuler la commande
+    const updatedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancelledReason: reason || 'Annulée par le client',
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Libérer le stock réservé
+    for (const item of updatedOrder.items) {
+      const product = await this.prisma.product.findUnique({
+        where: { id: item.productId },
+        include: { stock: true },
+      });
+
+      if (product?.trackInventory && product.stock) {
+        await this.prisma.productStock.update({
+          where: { productId: product.id },
+          data: {
+            reservedQuantity: {
+              decrement: item.quantity,
+            },
+          },
+        });
+      }
+    }
+
+    // Créer automatiquement une notification pour le client
+    try {
+      await this.notificationService.createNotification(
+        userId,
+        'ORDER_UPDATE',
+        'Commande annulée',
+        `Votre commande ${updatedOrder.orderNumber} a été annulée${reason ? ` : ${reason}` : ''}.`,
+        {
+          orderId: updatedOrder.id,
+          orderNumber: updatedOrder.orderNumber,
+          status: 'CANCELLED',
+          reason: reason || null,
+        },
+      );
+      this.logger.log(
+        `Notification créée pour le client ${userId} - Commande ${updatedOrder.orderNumber} annulée`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Erreur lors de la création de la notification pour l'annulation de la commande ${updatedOrder.orderNumber}:`,
+        error,
+      );
+    }
+
+    return {
+      id: updatedOrder.id,
+      orderNumber: updatedOrder.orderNumber,
+      status: updatedOrder.status,
+      cancelledAt: updatedOrder.cancelledAt,
+      cancelledReason: updatedOrder.cancelledReason,
+      message: 'Commande annulée avec succès',
+    };
+  }
+
+  /**
+   * Envoie un message au vendeur concernant une commande
+   */
+  async sendMessage(orderId: string, userId: string, message: string) {
+    // Vérifier que la commande existe et appartient à l'utilisateur
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId: userId,
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                sellerId: true,
+                name: true,
+              },
+            },
+          },
+          take: 1,
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    if (order.items.length === 0) {
+      throw new BadRequestException('Cette commande ne contient aucun produit');
+    }
+
+    // Récupérer le sellerId du premier produit (pour les commandes avec plusieurs sellers, on prend le premier)
+    const sellerId = order.items[0].product.sellerId;
+
+    // Créer le message
+    const orderMessage = await this.prisma.orderMessage.create({
+      data: {
+        orderId,
+        senderId: userId,
+        senderRole: 'CUSTOMER',
+        message,
+      },
+      include: {
+        order: {
+          select: {
+            id: true,
+            orderNumber: true,
+          },
+        },
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    // Créer automatiquement une notification pour le seller
+    try {
+      await this.notificationService.createNotification(
+        sellerId,
+        'ORDER_MESSAGE',
+        'Nouveau message du client',
+        `Vous avez reçu un nouveau message de ${orderMessage.sender.firstName} ${orderMessage.sender.lastName} concernant la commande ${order.orderNumber} : ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`,
+        {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          messageId: orderMessage.id,
+          senderId: userId,
+          customerName: `${orderMessage.sender.firstName} ${orderMessage.sender.lastName}`,
+        },
+      );
+      this.logger.log(
+        `Notification créée pour le seller ${sellerId} - Nouveau message du client pour la commande ${order.orderNumber}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Erreur lors de la création de la notification pour le message du client de la commande ${order.orderNumber}:`,
+        error,
+      );
+    }
+
+    return {
+      id: orderMessage.id,
+      orderId: orderMessage.orderId,
+      orderNumber: order.orderNumber,
+      senderId: orderMessage.senderId,
+      senderRole: orderMessage.senderRole,
+      message: orderMessage.message,
+      isRead: orderMessage.isRead,
+      createdAt: orderMessage.createdAt,
+    };
+  }
+
+  /**
+   * Récupère l'historique des messages d'une commande pour le client
+   */
+  async getOrderMessages(orderId: string, userId: string) {
+    // Vérifier que la commande existe et appartient à l'utilisateur
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId: userId,
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
+    const messages = await this.prisma.orderMessage.findMany({
+      where: { orderId },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            profilePicture: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      messages: messages.map((msg) => ({
+        id: msg.id,
+        senderId: msg.senderId,
+        senderRole: msg.senderRole,
+        sender: {
+          id: msg.sender.id,
+          name: `${msg.sender.firstName} ${msg.sender.lastName}`,
+          role: msg.sender.role,
+          profilePicture: msg.sender.profilePicture,
+        },
+        message: msg.message,
+        isRead: msg.isRead,
+        createdAt: msg.createdAt,
+      })),
+      totalMessages: messages.length,
+      unreadCount: messages.filter((m) => !m.isRead && m.senderRole === 'SELLER').length,
     };
   }
 }

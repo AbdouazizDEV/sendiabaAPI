@@ -12,6 +12,8 @@ import { CartModule } from './modules/cart/cart.module';
 import { OrderModule } from './modules/orders/order.module';
 import { PaymentModule } from './modules/payments/payment.module';
 import { ReviewModule } from './modules/reviews/review.module';
+import { NotificationModule } from './modules/notifications/notification.module';
+import { FavoriteModule } from './modules/favorites/favorite.module';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 
@@ -42,6 +44,8 @@ import jwtConfig from './config/jwt.config';
     OrderModule,
     PaymentModule,
     ReviewModule,
+    NotificationModule,
+    FavoriteModule,
   ],
   controllers: [AppController],
   providers: [AppService],
