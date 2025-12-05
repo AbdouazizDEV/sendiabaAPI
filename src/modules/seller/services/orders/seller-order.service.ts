@@ -9,6 +9,7 @@ import { RefundOrderDto } from '../../dto/orders/refund-order.dto';
 import { SendMessageDto } from '../../dto/orders/send-message.dto';
 import { InvoiceService } from '../../../invoice/invoice.service';
 import { MailService } from '../../../mail/mail.service';
+import { NotificationService } from '../../../notifications/services/notification.service';
 
 @Injectable()
 export class SellerOrderService {
@@ -18,6 +19,7 @@ export class SellerOrderService {
     private readonly prisma: PrismaService,
     private readonly invoiceService: InvoiceService,
     private readonly mailService: MailService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -319,7 +321,77 @@ export class SellerOrderService {
       },
     });
 
+    // Créer automatiquement une notification pour le client
+    await this.createOrderStatusNotification(order.user.id, order, status, reason);
+
     return this.formatOrder(order);
+  }
+
+  /**
+   * Crée une notification pour le client lors d'un changement de statut
+   */
+  private async createOrderStatusNotification(
+    userId: string,
+    order: any,
+    status: OrderStatus,
+    reason?: string,
+  ): Promise<void> {
+    const statusMessages: Record<OrderStatus, { title: string; message: string }> = {
+      [OrderStatus.CONFIRMED]: {
+        title: 'Commande confirmée',
+        message: `Votre commande ${order.orderNumber} a été confirmée et est en cours de préparation.`,
+      },
+      [OrderStatus.PROCESSING]: {
+        title: 'Commande en préparation',
+        message: `Votre commande ${order.orderNumber} est actuellement en cours de préparation.`,
+      },
+      [OrderStatus.SHIPPED]: {
+        title: 'Commande expédiée',
+        message: `Votre commande ${order.orderNumber} a été expédiée${order.trackingNumber ? ` avec le numéro de suivi ${order.trackingNumber}` : ''}.`,
+      },
+      [OrderStatus.DELIVERED]: {
+        title: 'Commande livrée',
+        message: `Votre commande ${order.orderNumber} a été livrée avec succès. Merci pour votre achat !`,
+      },
+      [OrderStatus.CANCELLED]: {
+        title: 'Commande annulée',
+        message: `Votre commande ${order.orderNumber} a été annulée${reason ? ` : ${reason}` : ''}.`,
+      },
+      [OrderStatus.REFUNDED]: {
+        title: 'Remboursement effectué',
+        message: `Le remboursement pour votre commande ${order.orderNumber} a été effectué${reason ? ` : ${reason}` : ''}.`,
+      },
+      [OrderStatus.PENDING]: {
+        title: 'Mise à jour de commande',
+        message: `Votre commande ${order.orderNumber} a été mise à jour.`,
+      },
+    };
+
+    const notification = statusMessages[status];
+    if (notification) {
+      try {
+        await this.notificationService.createNotification(
+          userId,
+          'ORDER_UPDATE',
+          notification.title,
+          notification.message,
+          {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            status,
+            reason: reason || null,
+          },
+        );
+        this.logger.log(
+          `Notification créée pour le client ${userId} - Commande ${order.orderNumber} - Statut: ${status}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Erreur lors de la création de la notification pour la commande ${order.orderNumber}:`,
+          error,
+        );
+      }
+    }
   }
 
   /**
@@ -391,6 +463,13 @@ export class SellerOrderService {
         },
       },
     });
+
+    // Créer automatiquement une notification pour le client
+    await this.createOrderStatusNotification(
+      order.user.id,
+      order,
+      OrderStatus.SHIPPED,
+    );
 
     return this.formatOrder(order);
   }
@@ -519,6 +598,27 @@ export class SellerOrderService {
   async sendMessage(sellerId: string, orderId: string, sendMessageDto: SendMessageDto) {
     await this.verifyOrderBelongsToSeller(orderId, sellerId);
 
+    // Récupérer la commande avec les infos du client
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        userId: true,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
     const message = await this.prisma.orderMessage.create({
       data: {
         orderId,
@@ -535,6 +635,30 @@ export class SellerOrderService {
         },
       },
     });
+
+    // Créer automatiquement une notification pour le client
+    try {
+      await this.notificationService.createNotification(
+        order.userId,
+        'ORDER_MESSAGE',
+        'Nouveau message du vendeur',
+        `Vous avez reçu un nouveau message concernant votre commande ${order.orderNumber} : ${sendMessageDto.message.substring(0, 100)}${sendMessageDto.message.length > 100 ? '...' : ''}`,
+        {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          messageId: message.id,
+          senderId: sellerId,
+        },
+      );
+      this.logger.log(
+        `Notification créée pour le client ${order.userId} - Nouveau message pour la commande ${order.orderNumber}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Erreur lors de la création de la notification pour le message de la commande ${order.orderNumber}:`,
+        error,
+      );
+    }
 
     return {
       id: message.id,
@@ -554,19 +678,54 @@ export class SellerOrderService {
   async getOrderMessages(sellerId: string, orderId: string) {
     await this.verifyOrderBelongsToSeller(orderId, sellerId);
 
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Commande non trouvée');
+    }
+
     const messages = await this.prisma.orderMessage.findMany({
       where: { orderId },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            profilePicture: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     });
 
-    return messages.map((msg) => ({
-      id: msg.id,
-      senderId: msg.senderId,
-      senderRole: msg.senderRole,
-      message: msg.message,
-      isRead: msg.isRead,
-      createdAt: msg.createdAt,
-    }));
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      messages: messages.map((msg) => ({
+        id: msg.id,
+        senderId: msg.senderId,
+        senderRole: msg.senderRole,
+        sender: {
+          id: msg.sender.id,
+          name: `${msg.sender.firstName} ${msg.sender.lastName}`,
+          role: msg.sender.role,
+          profilePicture: msg.sender.profilePicture,
+        },
+        message: msg.message,
+        isRead: msg.isRead,
+        createdAt: msg.createdAt,
+      })),
+      totalMessages: messages.length,
+      unreadCount: messages.filter((m) => !m.isRead && m.senderRole === 'CUSTOMER').length,
+    };
   }
 
   /**
