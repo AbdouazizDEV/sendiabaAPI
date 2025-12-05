@@ -166,4 +166,54 @@ export class MailService {
       return false;
     }
   }
+
+  /**
+   * Envoie un email avec une pièce jointe (PDF)
+   */
+  async sendEmailWithAttachment(
+    email: string,
+    subject: string,
+    htmlContent: string,
+    attachment: {
+      filename: string;
+      content: Buffer;
+      contentType?: string;
+    },
+    recipientName?: string,
+  ): Promise<void> {
+    const mailOptions = {
+      from: `"Sendiaba" <${this.configService.get<string>('MAIL_FROM')}>`,
+      to: email,
+      subject,
+      html: htmlContent,
+      attachments: [
+        {
+          filename: attachment.filename,
+          content: attachment.content,
+          contentType: attachment.contentType || 'application/pdf',
+        },
+      ],
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(
+        `✅ Email avec pièce jointe envoyé à ${email} (${attachment.filename})`,
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `❌ Erreur lors de l'envoi de l'email avec pièce jointe à ${email}`,
+      );
+
+      if (error.code === 'EAUTH') {
+        this.logger.error("🔐 Erreur d'authentification email");
+      } else if (error.code === 'ECONNECTION') {
+        this.logger.error('🌐 Erreur de connexion au serveur SMTP');
+      } else {
+        this.logger.error('Erreur détaillée:', error.message);
+      }
+
+      throw error;
+    }
+  }
 }
