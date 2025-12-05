@@ -320,36 +320,46 @@ enum PaymentStatus {
 }
 
 model Order {
-  id                 String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId             String      @db.Uuid
-  orderNumber        String      @unique @db.VarChar
-  status             OrderStatus @default(PENDING)
-  subtotal           Decimal     @db.Decimal(10, 2)
-  tax                Decimal     @default(0) @db.Decimal(10, 2)
-  shipping           Decimal     @default(0) @db.Decimal(10, 2)
-  discount           Decimal     @default(0) @db.Decimal(10, 2)
-  total              Decimal     @db.Decimal(10, 2)
+  id                 String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId             String         @db.Uuid
+  orderNumber        String         @unique @db.VarChar
+  status             OrderStatus    @default(PENDING)
+  subtotal           Decimal        @db.Decimal(10, 2)
+  tax                Decimal        @default(0) @db.Decimal(10, 2)
+  shipping           Decimal        @default(0) @db.Decimal(10, 2)
+  discount           Decimal        @default(0) @db.Decimal(10, 2)
+  total              Decimal        @db.Decimal(10, 2)
   shippingAddress    String
-  shippingCity       String      @db.VarChar
-  shippingRegion     String      @db.VarChar
-  shippingCountry    String      @default("Sénégal") @db.VarChar
-  shippingPostalCode String?     @db.VarChar
-  recipientName      String      @db.VarChar
-  recipientPhone     String      @db.VarChar
+  shippingCity       String         @db.VarChar
+  shippingRegion     String         @db.VarChar
+  shippingCountry    String         @default("Sénégal") @db.VarChar
+  shippingPostalCode String?        @db.VarChar
+  recipientName      String         @db.VarChar
+  recipientPhone     String         @db.VarChar
   notes              String?
-  cancelledAt        DateTime?   @db.Timestamp(6)
+  trackingNumber     String?        @db.VarChar
+  trackingUrl        String?        @db.VarChar
+  carrier            String?        @db.VarChar
+  confirmedAt        DateTime?      @db.Timestamp(6)
+  processedAt        DateTime?      @db.Timestamp(6)
+  shippedAt          DateTime?      @db.Timestamp(6)
+  cancelledAt        DateTime?      @db.Timestamp(6)
   cancelledReason    String?
-  deliveredAt        DateTime?   @db.Timestamp(6)
-  createdAt          DateTime    @default(now()) @db.Timestamp(6)
-  updatedAt          DateTime    @default(now()) @updatedAt @db.Timestamp(6)
-  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  deliveredAt        DateTime?      @db.Timestamp(6)
+  refundedAt         DateTime?      @db.Timestamp(6)
+  refundReason       String?        @db.Text
+  createdAt          DateTime       @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime       @default(now()) @updatedAt @db.Timestamp(6)
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   items              OrderItem[]
   payments           Payment[]
+  messages           OrderMessage[]
 
   @@index([userId])
   @@index([orderNumber])
   @@index([status])
   @@index([createdAt])
+  @@index([trackingNumber])
   @@map("orders")
 }
 
@@ -399,6 +409,24 @@ model Payment {
   @@index([paydunyaInvoiceId])
   @@index([transactionId])
   @@map("payments")
+}
+
+model OrderMessage {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  orderId    String   @db.Uuid
+  senderId   String   @db.Uuid // ID du seller ou du customer
+  senderRole String   @db.VarChar // 'SELLER' ou 'CUSTOMER'
+  message    String   @db.Text
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime @default(now()) @updatedAt @db.Timestamp(6)
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([orderId])
+  @@index([senderId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("order_messages")
 }
 
 model Company {
